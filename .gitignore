@@ -1,0 +1,5 @@
+reports/
+.packer_cache/
+packer_cache/
+*.pkr.lock.hcl
+.DS_Store
