@@ -119,6 +119,9 @@ jobs:
           components=$(awk '/^components:/{f=1;next} f && /^ *-/{print $2} f && !/^ *-/{exit}' \
             "images/${{ matrix.image }}/meta.yml")
           for comp in $components; do
+            # APK-first: a component is only built from source when it has a
+            # sources/<name>/ dir. Everything else installs from Alpine in its
+            # own install.sh, so skip it here.
             [ -f "sources/${comp}/version" ] || continue
             binary=$(cat "sources/${comp}/binary")
             ver=$(cat "sources/${comp}/version")
