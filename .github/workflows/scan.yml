@@ -98,13 +98,37 @@ jobs:
       - name: Relabel image with CVE summary
         id: relabeled
         run: |
-          crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' ./reports/grype-report.json)
-          highs=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' ./reports/grype-report.json)
-          mediums=$(jq '[.matches[] | select(.vulnerability.severity == "Medium")] | length' ./reports/grype-report.json)
-          lows=$(jq '[.matches[] | select(.vulnerability.severity == "Low")] | length' ./reports/grype-report.json)
+          # Count unique CVE ids per severity so the counts match the listed CVEs
+          # (the same CVE can span multiple packages).
+          crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical") | .vulnerability.id] | unique | length' ./reports/grype-report.json)
+          highs=$(jq '[.matches[] | select(.vulnerability.severity == "High") | .vulnerability.id] | unique | length' ./reports/grype-report.json)
+          mediums=$(jq '[.matches[] | select(.vulnerability.severity == "Medium") | .vulnerability.id] | unique | length' ./reports/grype-report.json)
+          lows=$(jq '[.matches[] | select(.vulnerability.severity == "Low") | .vulnerability.id] | unique | length' ./reports/grype-report.json)
 
           BASE_DESC=$(grep '^description:' "images/${{ inputs.image }}/meta.yml" | cut -d: -f2- | tr -d '"' | xargs)
-          DESC="${BASE_DESC} — Critical:${crits} High:${highs} Medium:${mediums} Low:${lows} | Grype $(date -u +%Y-%m-%d)"
+
+          # Deduped, severity-sorted list of the CVEs Grype found, each with its
+          # advisory link (falls back to osv.dev when Grype has no dataSource).
+          cve_list=$(jq -r '
+            [ .matches[] | {id: .vulnerability.id, sev: .vulnerability.severity, url: (.vulnerability.dataSource // "")} ]
+            | unique_by(.id)
+            | sort_by({"Critical":0,"High":1,"Medium":2,"Low":3,"Negligible":4,"Unknown":5}[.sev] // 9)
+            | .[]
+            | "\(.id) (\(.sev)) " + (if .url == "" then "https://osv.dev/vulnerability/\(.id)" else .url end)
+          ' ./reports/grype-report.json)
+
+          # Cap the list so a noisy image cannot produce a multi-KB label.
+          cap=25
+          total=$(printf '%s\n' "$cve_list" | grep -c . || true)
+          if [ "$total" -eq 0 ]; then
+            cves="none"
+          elif [ "$total" -gt "$cap" ]; then
+            cves="$(printf '%s\n' "$cve_list" | head -n "$cap" | sed ':a;N;$!ba;s/\n/; /g'); +$((total - cap)) more"
+          else
+            cves="$(printf '%s\n' "$cve_list" | sed ':a;N;$!ba;s/\n/; /g')"
+          fi
+
+          DESC="${BASE_DESC} — Critical:${crits} High:${highs} Medium:${mediums} Low:${lows} | Grype $(date -u +%Y-%m-%d) | CVEs: ${cves}"
 
           IMAGE="ghcr.io/iron-vigil/forge/${{ inputs.image }}"
 
