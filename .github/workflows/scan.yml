@@ -21,6 +21,7 @@ permissions:
   packages: read
   security-events: write
   id-token: write   # for Cosign keyless signing
+  actions: write    # for triggering release workflow
 
 jobs:
   scan:
@@ -39,6 +40,9 @@ jobs:
 
       - name: Pull image
         run: docker pull ${{ inputs.image_ref }}
+
+      - name: Create reports dir
+        run: mkdir -p ./reports
 
       # SBOM generation with Syft
       - name: Generate SBOM (SPDX)
