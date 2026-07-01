@@ -158,6 +158,7 @@ jobs:
               inputs: {
                 image: '${{ matrix.image }}',
                 image_ref: '${{ steps.build.outputs.image_ref }}',
+                image_digest: '${{ steps.digest.outputs.digest }}',
                 version: '${{ steps.version.outputs.version }}',
               }
             });
