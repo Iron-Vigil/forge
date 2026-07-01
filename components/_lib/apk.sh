@@ -2,8 +2,7 @@
 # Forge — APK wrapper
 # Enforces exact version pins, logs every install, fails loud
 
-LIB_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${LIB_DIR}/common.sh"
+. /tmp/forge-lib/common.sh
 
 # Install one or more packages — caller must pass exact version pins
 # e.g. apk_install "nginx=1.26.2-r0" "nginx-mod-http-headers-more=1.26.2-r0"
