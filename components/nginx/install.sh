@@ -8,34 +8,25 @@
 require_root
 log "component/nginx: installing"
 
-apk_install "pcre2 zlib libssl3"
+# Verify to get the exact pin: apk search --exact nginx
+# Alpine 3.24 ships 1.30.3-r0 — CVE-2026-42055 fixed (never patched in the 1.26.x line 3.21 had).
+apk_install "nginx=1.30.3-r0"
 
-addgroup -S nginx 2>/dev/null || true
-adduser -S -D -H -h /dev/null -s /sbin/nologin -G nginx -g nginx nginx 2>/dev/null || true
-getent passwd nginx > /dev/null 2>&1 || die "nginx user creation failed"
+# Alpine's nginx package creates the nginx user — verify it landed
+getent passwd nginx > /dev/null 2>&1 || die "nginx user missing after package install"
 log "component/nginx: nginx user ok"
-
-[ -f /tmp/forge-src-nginx ] \
-    || die "nginx binary not staged — check file provisioner in image.pkr.hcl and build-sources.yml"
-install -Dm755 /tmp/forge-src-nginx /usr/sbin/nginx
-rm -f /tmp/forge-src-nginx
 
 # Apply staged configs (staged by Packer file provisioner)
 [ -f /tmp/if_nginx.conf ] \
     || die "nginx.conf not staged — check file provisioner in image.pkr.hcl"
 [ -f /tmp/if_nginx_default.conf ] \
     || die "default.conf not staged — check file provisioner in image.pkr.hcl"
-# Source build ships only the binary, so mime.types (normally from the tarball's
-# conf/) must be staged here or nginx.conf's include fails validation.
-[ -f /tmp/if_nginx_mime.types ] \
-    || die "mime.types not staged — check file provisioner in image.pkr.hcl"
 
-mkdir -p /etc/nginx/conf.d
 install -m 640 -o root -g nginx /tmp/if_nginx.conf /etc/nginx/nginx.conf
+mkdir -p /etc/nginx/conf.d
 install -m 640 -o root -g nginx /tmp/if_nginx_default.conf /etc/nginx/conf.d/default.conf
-install -m 644 -o root -g nginx /tmp/if_nginx_mime.types /etc/nginx/mime.types
 
-rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf /tmp/if_nginx_mime.types
+rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf
 
 # Webroot
 mkdir -p /var/www/html

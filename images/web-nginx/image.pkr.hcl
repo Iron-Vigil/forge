@@ -9,7 +9,7 @@ packer {
 
 variable "alpine_version" {
   type    = string
-  default = "3.21"
+  default = "3.24"
 }
 
 variable "image_version" {
@@ -58,12 +58,6 @@ build {
     ]
   }
 
-  # Stage source-built nginx binary (pulled from GHCR artifact by build.yml)
-  provisioner "file" {
-    source      = "/tmp/forge-src/nginx/nginx"
-    destination = "/tmp/forge-src-nginx"
-  }
-
   # Stage nginx configs before the install script runs
   provisioner "file" {
     source      = "${path.root}/../../components/nginx/nginx.conf"
@@ -73,11 +67,6 @@ build {
   provisioner "file" {
     source      = "${path.root}/../../components/nginx/conf.d/default.conf"
     destination = "/tmp/if_nginx_default.conf"
-  }
-
-  provisioner "file" {
-    source      = "${path.root}/../../components/nginx/mime.types"
-    destination = "/tmp/if_nginx_mime.types"
   }
 
   # nginx component

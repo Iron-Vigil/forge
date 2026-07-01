@@ -1,5 +1,10 @@
 name: Build Sources
 
+# Dormant — no sources/<name>/ dirs currently exist, so this is a no-op.
+# Kept as insurance: if a future Alpine release lags a critical fix for a
+# package, add sources/<name>/ and this compiles it from source. See
+# sources/.gitkeep and the "Pull and verify source artifacts" step in build.yml.
+
 on:
   push:
     branches: [main]
@@ -85,7 +90,7 @@ jobs:
           docker run --rm \
             -v "$PWD/sources/${{ matrix.source }}:/build:ro" \
             -v "/tmp/output:/output" \
-            alpine:3.21 \
+            alpine:3.24 \
             sh /build/build.sh
 
       - name: Package as OCI artifact

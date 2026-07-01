@@ -9,7 +9,7 @@ packer {
 
 variable "alpine_version" {
   type    = string
-  default = "3.21"
+  default = "3.24"
 }
 
 variable "image_version" {
