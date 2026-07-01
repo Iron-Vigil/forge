@@ -57,6 +57,12 @@ build {
     ]
   }
 
+  # Stage source-built valkey-server binary (pulled from GHCR artifact by build.yml)
+  provisioner "file" {
+    source      = "/tmp/forge-src/valkey/valkey-server"
+    destination = "/tmp/forge-src-valkey"
+  }
+
   # Stage valkey config before install
   provisioner "file" {
     source      = "${path.root}/../../components/valkey/valkey.conf"

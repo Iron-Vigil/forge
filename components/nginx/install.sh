@@ -8,12 +8,17 @@
 require_root
 log "component/nginx: installing"
 
-# Verify to get the exact pin: apk search --exact nginx
-apk_install "nginx=1.26.3-r0"
+apk_install "pcre2 zlib libssl3"
 
-# Alpine's nginx package creates the nginx user — verify it landed
-getent passwd nginx > /dev/null 2>&1 || die "nginx user missing after package install"
+addgroup -S nginx 2>/dev/null || true
+adduser -S -D -H -h /dev/null -s /sbin/nologin -G nginx -g nginx nginx 2>/dev/null || true
+getent passwd nginx > /dev/null 2>&1 || die "nginx user creation failed"
 log "component/nginx: nginx user ok"
+
+[ -f /tmp/forge-src-nginx ] \
+    || die "nginx binary not staged — check file provisioner in image.pkr.hcl and build-sources.yml"
+install -Dm755 /tmp/forge-src-nginx /usr/sbin/nginx
+rm -f /tmp/forge-src-nginx
 
 # Apply staged configs (staged by Packer file provisioner)
 [ -f /tmp/if_nginx.conf ] \
@@ -21,8 +26,8 @@ log "component/nginx: nginx user ok"
 [ -f /tmp/if_nginx_default.conf ] \
     || die "default.conf not staged — check file provisioner in image.pkr.hcl"
 
-install -m 640 -o root -g nginx /tmp/if_nginx.conf /etc/nginx/nginx.conf
 mkdir -p /etc/nginx/conf.d
+install -m 640 -o root -g nginx /tmp/if_nginx.conf /etc/nginx/nginx.conf
 install -m 640 -o root -g nginx /tmp/if_nginx_default.conf /etc/nginx/conf.d/default.conf
 
 rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf

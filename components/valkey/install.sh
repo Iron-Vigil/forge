@@ -8,11 +8,18 @@
 require_root
 log "component/valkey: installing"
 
-apk_install "valkey=7.2.13-r0"
+apk_install "libssl3"
 
-# Package creates the valkey user — verify it landed
-getent passwd valkey > /dev/null 2>&1 || die "valkey user missing after package install"
+addgroup -S valkey 2>/dev/null || true
+mkdir -p /var/lib/valkey /etc/valkey
+adduser -S -D -h /var/lib/valkey -s /sbin/nologin -G valkey valkey 2>/dev/null || true
+getent passwd valkey > /dev/null 2>&1 || die "valkey user creation failed"
 log "component/valkey: valkey user ok"
+
+[ -f /tmp/forge-src-valkey ] \
+    || die "valkey-server binary not staged — check file provisioner in image.pkr.hcl and build-sources.yml"
+install -Dm755 /tmp/forge-src-valkey /usr/bin/valkey-server
+rm -f /tmp/forge-src-valkey
 
 # Apply staged config
 [ -f /tmp/if_valkey.conf ] \
@@ -21,7 +28,7 @@ log "component/valkey: valkey user ok"
 install -m 640 -o root -g valkey /tmp/if_valkey.conf /etc/valkey/valkey.conf
 rm -f /tmp/if_valkey.conf
 
-# Data dir — already created by package, just enforce ownership and permissions
+# Data dir
 chown -R valkey:valkey /var/lib/valkey
 chmod 750 /var/lib/valkey
 

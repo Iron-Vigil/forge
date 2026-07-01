@@ -7,6 +7,7 @@ on:
       - 'images/**'
       - 'base/**'
       - 'components/**'
+      - 'sources/**'
   workflow_dispatch:
     inputs:
       image:
@@ -56,6 +57,8 @@ jobs:
               - 'base/**'
             components:
               - 'components/**'
+            sources:
+              - 'sources/**'
 
       - name: Build image matrix
         id: set_matrix
@@ -69,7 +72,8 @@ jobs:
           # Force all
           if [ "${{ inputs.force_all }}" = "true" ] || \
              [ "${{ steps.changes.outputs.base }}" = "true" ] || \
-             [ "${{ steps.changes.outputs.components }}" = "true" ]; then
+             [ "${{ steps.changes.outputs.components }}" = "true" ] || \
+             [ "${{ steps.changes.outputs.sources }}" = "true" ]; then
             images=$(find images/ -name "image.pkr.hcl" -exec dirname {} \; | xargs -I{} basename {} | jq -Rnc '[inputs]')
             echo "matrix={\"image\":${images}}" >> "$GITHUB_OUTPUT"
             exit 0
@@ -104,6 +108,22 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull source artifacts
+        run: |
+          components=$(awk '/^components:/{f=1;next} f && /^ *-/{print $2} f && !/^ *-/{exit}' \
+            "images/${{ matrix.image }}/meta.yml")
+          for comp in $components; do
+            [ -f "sources/${comp}/version" ] || continue
+            binary=$(cat "sources/${comp}/binary")
+            ver=$(cat "sources/${comp}/version")
+            echo "Pulling ghcr.io/iron-vigil/forge/src/${comp}:${ver}"
+            docker create --name "forge-src-${comp}" "ghcr.io/iron-vigil/forge/src/${comp}:${ver}"
+            mkdir -p "/tmp/forge-src/${comp}"
+            docker cp "forge-src-${comp}:/${binary}" "/tmp/forge-src/${comp}/${binary}"
+            docker rm "forge-src-${comp}"
+            echo "Staged: /tmp/forge-src/${comp}/${binary}"
+          done
 
       - name: Setup Packer
         uses: hashicorp/setup-packer@main
