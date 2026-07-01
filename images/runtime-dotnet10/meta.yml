@@ -1,0 +1,18 @@
+name: runtime-dotnet10
+version: "0.1.0"
+description: Hardened .NET 10 runtime on Alpine
+
+components:
+  - dotnet-runtime10
+
+run_as: app
+entrypoint: ["/usr/lib/dotnet/dotnet"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: runtime-dotnet10
+  org.opencontainers.image.description: Hardened .NET 10 runtime on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge
