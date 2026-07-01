@@ -1,5 +1,6 @@
-name: runtime-aspnet10
-version: "0.1.0"
+name: hardened-aspnet
+tag: "10"
+latest: true
 description: Hardened ASP.NET Core 10 runtime on Alpine
 
 components:
@@ -15,7 +16,7 @@ distroless: true
 ipv6: false
 
 labels:
-  org.opencontainers.image.title: runtime-aspnet10
+  org.opencontainers.image.title: hardened-aspnet
   org.opencontainers.image.description: Hardened ASP.NET Core 10 on Alpine
   org.opencontainers.image.vendor: IronVigil
   org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

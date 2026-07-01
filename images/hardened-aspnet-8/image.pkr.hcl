@@ -14,7 +14,7 @@ variable "alpine_version" {
 
 variable "image_version" {
   type    = string
-  default = "0.1.0"
+  default = "8"
 }
 
 variable "registry" {
@@ -22,22 +22,23 @@ variable "registry" {
   default = "ghcr.io/iron-vigil/forge"
 }
 
-source "docker" "runtime_dotnet10" {
+source "docker" "hardened_aspnet_8" {
   image  = "alpine:${var.alpine_version}"
   commit = true
 
   changes = [
     "LABEL org.opencontainers.image.source=https://github.com/Iron-Vigil/forge",
     "LABEL org.opencontainers.image.vendor=IronVigil",
-    "LABEL org.opencontainers.image.title=runtime-dotnet10",
+    "LABEL org.opencontainers.image.title=hardened-aspnet",
     "LABEL org.opencontainers.image.version=${var.image_version}",
+    "EXPOSE 8080",
     "USER app",
     "ENTRYPOINT [\"/usr/lib/dotnet/dotnet\"]"
   ]
 }
 
 build {
-  sources = ["source.docker.runtime_dotnet10"]
+  sources = ["source.docker.hardened_aspnet_8"]
 
   # Stage shared lib — must be first
   provisioner "file" {
@@ -56,9 +57,9 @@ build {
     ]
   }
 
-  # .NET 10 runtime component
+  # ASP.NET Core 8 runtime component
   provisioner "shell" {
-    script = "${path.root}/../../components/dotnet-runtime10/install.sh"
+    script = "${path.root}/../../components/aspnet-runtime8/install.sh"
   }
 
   # Final strip
@@ -67,7 +68,7 @@ build {
   }
 
   post-processor "docker-tag" {
-    repository = "${var.registry}/runtime-dotnet10"
-    tags       = [var.image_version, "latest"]
+    repository = "${var.registry}/hardened-aspnet"
+    tags       = [var.image_version]
   }
 }

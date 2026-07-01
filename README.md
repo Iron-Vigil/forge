@@ -8,14 +8,14 @@ Public repository of hardened Docker images for the Iron Vigil platform. Images 
 
 ## Available Images
 
-| Image | Description | Ports |
-|---|---|---|
-| `web-nginx` | Hardened nginx on Alpine | 80, 443 |
-| `cache-valkey` | Hardened Valkey cache on Alpine | 6379 |
-| `runtime-dotnet8` | Hardened .NET 8 runtime on Alpine (base image) | — |
-| `runtime-dotnet10` | Hardened .NET 10 runtime on Alpine (base image) | — |
-| `runtime-aspnet8` | Hardened ASP.NET Core 8 runtime on Alpine (base image) | 8080 |
-| `runtime-aspnet10` | Hardened ASP.NET Core 10 runtime on Alpine (base image) | 8080 |
+Images are tagged by the software version, like the official language images (`hardened-python:3.14`). The `:latest` tag tracks the newest version of each.
+
+| Image | Tags | Description | Ports |
+|---|---|---|---|
+| `hardened-nginx` | `1.30` | Hardened nginx web server on Alpine | 80, 443 |
+| `hardened-valkey` | `9` | Hardened Valkey cache on Alpine | 6379 |
+| `hardened-dotnet` | `8`, `10` | Hardened .NET runtime on Alpine (base image) | — |
+| `hardened-aspnet` | `8`, `10` | Hardened ASP.NET Core runtime on Alpine (base image) | 8080 |
 
 ---
 
@@ -40,20 +40,20 @@ Monthly rebuilds run the first Monday of each month at 02:00 UTC. They only fire
 
 ```sh
 # nginx
-docker pull ghcr.io/iron-vigil/forge/web-nginx:0.1.0
+docker pull ghcr.io/iron-vigil/forge/hardened-nginx:1.30
 
 # Valkey cache
-docker pull ghcr.io/iron-vigil/forge/cache-valkey:0.1.0
+docker pull ghcr.io/iron-vigil/forge/hardened-valkey:9
 
 # .NET runtime base images (use as a FROM base for your published app)
-docker pull ghcr.io/iron-vigil/forge/runtime-aspnet10:0.1.0
+docker pull ghcr.io/iron-vigil/forge/hardened-aspnet:10
 ```
 
-The `runtime-*` images are distroless .NET base images — no shell, non-root
-(uid 1654), `dotnet` on the entrypoint. Layer your published app on top:
+The `hardened-dotnet` / `hardened-aspnet` images are distroless .NET base images
+— no shell, non-root (uid 1654), `dotnet` on the entrypoint. Layer your app on top:
 
 ```dockerfile
-FROM ghcr.io/iron-vigil/forge/runtime-aspnet10:0.1.0
+FROM ghcr.io/iron-vigil/forge/hardened-aspnet:10
 COPY --chown=1654:1654 ./publish/ /app/
 ENTRYPOINT ["/usr/lib/dotnet/dotnet", "/app/MyApp.dll"]
 ```
@@ -63,7 +63,7 @@ Globalization (ICU) is included; ASP.NET Core listens on `8080` as uid 1654.
 Verify the Cosign signature (same command for all images, swap the image ref):
 
 ```sh
-cosign verify ghcr.io/iron-vigil/forge/cache-valkey:0.1.0 \
+cosign verify ghcr.io/iron-vigil/forge/hardened-valkey:9 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp "https://github.com/Iron-Vigil/forge/.github/workflows/scan.yml"
 ```
@@ -75,7 +75,7 @@ docker run -d --name valkey \
   --read-only \
   --network my-net \
   -p 6379:6379 \
-  ghcr.io/iron-vigil/forge/cache-valkey:0.1.0 \
+  ghcr.io/iron-vigil/forge/hardened-valkey:9 \
   valkey-server /etc/valkey/valkey.conf --requirepass yourpassword --maxmemory 256mb
 ```
 
@@ -117,25 +117,17 @@ components/
   aspnet-runtime10/
     install.sh
 
-images/
-  web-nginx/
+images/                     # dir = hardened-<sw>-<ver>; published name/tag come from meta.yml
+  hardened-nginx-1.30/
     image.pkr.hcl           # Packer template
-    meta.yml                # image metadata (components, ports, entrypoint)
+    meta.yml                # name (repo), tag (sw version), latest, components, ports, entrypoint
     Dockerfile.strip        # post-Packer distroless strip (FROM scratch)
-  cache-valkey/
-    image.pkr.hcl
-    meta.yml
-    Dockerfile.strip
-  runtime-dotnet8/          # .NET 8 base runtime
-    image.pkr.hcl
-    meta.yml
-    Dockerfile.strip
-  runtime-dotnet10/         # .NET 10 base runtime
+  hardened-valkey-9/
     ...
-  runtime-aspnet8/          # ASP.NET Core 8 runtime
-    ...
-  runtime-aspnet10/         # ASP.NET Core 10 runtime
-    ...
+  hardened-dotnet-8/        # -> hardened-dotnet:8
+  hardened-dotnet-10/       # -> hardened-dotnet:10   (latest)
+  hardened-aspnet-8/        # -> hardened-aspnet:8
+  hardened-aspnet-10/       # -> hardened-aspnet:10   (latest)
 
 security/
   grype.yaml                # Grype scan config
@@ -188,8 +180,8 @@ To add a new component:
 
 ## Adding a New Image
 
-1. Create `images/<name>/image.pkr.hcl` — follow `web-nginx` as the template. Stage the `_lib` file provisioner first, run hardening passes, then component installs, then `06-strip.sh` last.
-2. Create `images/<name>/meta.yml` with `name`, `version`, `components`, `expose`, `run_as`, `entrypoint`.
+1. Create `images/hardened-<sw>-<ver>/image.pkr.hcl` — follow `hardened-nginx-1.30` as the template. Stage the `_lib` file provisioner first, run hardening passes, then component installs, then `06-strip.sh` last.
+2. Create `images/<name>/meta.yml` with `name` (published repo), `tag` (software version), `latest`, `components`, `expose`, `run_as`, `entrypoint`.
 3. Open a PR — validate runs automatically.
 4. After merge, trigger `Build Images` from Actions with `image=<name>`.
 

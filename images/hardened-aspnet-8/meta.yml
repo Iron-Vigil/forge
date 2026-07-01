@@ -1,5 +1,6 @@
-name: runtime-aspnet8
-version: "0.1.0"
+name: hardened-aspnet
+tag: "8"
+latest: false
 description: Hardened ASP.NET Core 8 runtime on Alpine
 
 components:
@@ -15,7 +16,7 @@ distroless: true
 ipv6: false
 
 labels:
-  org.opencontainers.image.title: runtime-aspnet8
+  org.opencontainers.image.title: hardened-aspnet
   org.opencontainers.image.description: Hardened ASP.NET Core 8 on Alpine
   org.opencontainers.image.vendor: IronVigil
   org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

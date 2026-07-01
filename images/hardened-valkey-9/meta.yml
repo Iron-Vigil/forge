@@ -1,5 +1,6 @@
-name: cache-valkey
-version: "0.1.0"
+name: hardened-valkey
+tag: "9"
+latest: true
 description: Hardened Valkey cache on Alpine
 
 components:
@@ -15,7 +16,7 @@ distroless: true
 ipv6: false
 
 labels:
-  org.opencontainers.image.title: cache-valkey
+  org.opencontainers.image.title: hardened-valkey
   org.opencontainers.image.description: Hardened Valkey on Alpine
   org.opencontainers.image.vendor: IronVigil
   org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

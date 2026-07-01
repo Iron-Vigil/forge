@@ -161,55 +161,66 @@ jobs:
       - name: Packer init
         run: packer init images/${{ matrix.image }}/
 
-      - name: Get image version
-        id: version
+      - name: Get image metadata
+        id: meta
         run: |
-          ver=$(grep '^version:' images/${{ matrix.image }}/meta.yml | awk '{print $2}' | tr -d '"')
-          echo "version=${ver}" >> "$GITHUB_OUTPUT"
+          m="images/${{ matrix.image }}/meta.yml"
+          # Published repo name + software-version tag come from meta; the dir
+          # (matrix.image) is just the build key/path.
+          name=$(grep '^name:'   "$m" | awk '{print $2}' | tr -d '"')
+          tag=$(grep  '^tag:'    "$m" | awk '{print $2}' | tr -d '"')
+          latest=$(grep '^latest:' "$m" | awk '{print $2}' | tr -d '"')
+          echo "name=${name}"     >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}"       >> "$GITHUB_OUTPUT"
+          echo "latest=${latest}" >> "$GITHUB_OUTPUT"
 
       - name: Build image
         id: build
         run: |
           packer build \
             -var-file=base/alpine.pkrvars.hcl \
-            -var "image_version=${{ steps.version.outputs.version }}" \
+            -var "image_version=${{ steps.meta.outputs.tag }}" \
             -var "registry=ghcr.io/iron-vigil/forge" \
             images/${{ matrix.image }}/
 
-          ref="ghcr.io/iron-vigil/forge/${{ matrix.image }}:${{ steps.version.outputs.version }}"
+          ref="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}:${{ steps.meta.outputs.tag }}"
           echo "image_ref=${ref}" >> "$GITHUB_OUTPUT"
           echo "Built: ${ref}"
 
       - name: Distroless strip
         run: |
-          VER="${{ steps.version.outputs.version }}"
-          IMAGE="ghcr.io/iron-vigil/forge/${{ matrix.image }}"
+          TAG="${{ steps.meta.outputs.tag }}"
+          IMAGE="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}"
           DESC=$(grep '^description:' "images/${{ matrix.image }}/meta.yml" | cut -d: -f2- | tr -d '"' | xargs)
 
+          tags="-t ${IMAGE}:${TAG}"
+          [ "${{ steps.meta.outputs.latest }}" = "true" ] && tags="${tags} -t ${IMAGE}:latest"
+
           docker build \
-            --build-arg "BASE=${IMAGE}:${VER}" \
+            --build-arg "BASE=${IMAGE}:${TAG}" \
             --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --build-arg "VCS_REF=${{ github.sha }}" \
-            --build-arg "IMAGE_VERSION=${VER}" \
+            --build-arg "IMAGE_VERSION=${TAG}" \
             --build-arg "IMAGE_DESCRIPTION=${DESC}" \
             --no-cache \
-            -t "${IMAGE}:${VER}" \
-            -t "${IMAGE}:latest" \
+            ${tags} \
             -f "images/${{ matrix.image }}/Dockerfile.strip" \
             .
 
       - name: Push image
         run: |
-          docker push ghcr.io/iron-vigil/forge/${{ matrix.image }}:${{ steps.version.outputs.version }}
-          docker push ghcr.io/iron-vigil/forge/${{ matrix.image }}:latest
+          IMAGE="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}"
+          docker push "${IMAGE}:${{ steps.meta.outputs.tag }}"
+          if [ "${{ steps.meta.outputs.latest }}" = "true" ]; then
+            docker push "${IMAGE}:latest"
+          fi
 
       - name: Get image digest
         id: digest
         run: |
-          digest=$(docker inspect --format='{{index .RepoDigests 0}}' \
-            ghcr.io/iron-vigil/forge/${{ matrix.image }}:${{ steps.version.outputs.version }} 2>/dev/null || \
-            docker inspect --format='{{.Id}}' \
-            ghcr.io/iron-vigil/forge/${{ matrix.image }}:${{ steps.version.outputs.version }})
+          ref="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}:${{ steps.meta.outputs.tag }}"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$ref" 2>/dev/null || \
+            docker inspect --format='{{.Id}}' "$ref")
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger scan
@@ -223,8 +234,10 @@ jobs:
               ref: 'main',
               inputs: {
                 image: '${{ matrix.image }}',
+                image_name: '${{ steps.meta.outputs.name }}',
                 image_ref: '${{ steps.build.outputs.image_ref }}',
                 image_digest: '${{ steps.digest.outputs.digest }}',
-                version: '${{ steps.version.outputs.version }}',
+                version: '${{ steps.meta.outputs.tag }}',
+                is_latest: '${{ steps.meta.outputs.latest }}',
               }
             });
