@@ -9,7 +9,8 @@ require_root
 log "component/nginx: installing"
 
 # Verify to get the exact pin: apk search --exact nginx
-apk_install "nginx=1.26.3-r0"
+# Alpine 3.24 ships 1.30.3-r0 — CVE-2026-42055 fixed (never patched in the 1.26.x line 3.21 had).
+apk_install "nginx=1.30.3-r0"
 
 # Alpine's nginx package creates the nginx user — verify it landed
 getent passwd nginx > /dev/null 2>&1 || die "nginx user missing after package install"

@@ -59,10 +59,13 @@ jobs:
 
       - name: Build image matrix
         id: set_matrix
+        env:
+          IMG: ${{ inputs.image }}
         run: |
-          # Explicit input takes priority
-          if [ -n "${{ inputs.image }}" ]; then
-            echo "matrix={\"image\":[\"${{ inputs.image }}\"]}" >> "$GITHUB_OUTPUT"
+          # Explicit input takes priority — via env, never interpolated into the shell
+          if [ -n "$IMG" ]; then
+            m=$(jq -nc --arg i "$IMG" '{image:[$i]}')
+            echo "matrix=${m}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -104,6 +107,51 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Pull and verify source artifacts
+        run: |
+          components=$(awk '/^components:/{f=1;next} f && /^ *-/{print $2} f && !/^ *-/{exit}' \
+            "images/${{ matrix.image }}/meta.yml")
+          for comp in $components; do
+            # APK-first: a component is only built from source when it has a
+            # sources/<name>/ dir. Everything else installs from Alpine in its
+            # own install.sh, so skip it here.
+            [ -f "sources/${comp}/version" ] || continue
+            binary=$(cat "sources/${comp}/binary")
+            ver=$(cat "sources/${comp}/version")
+            image="ghcr.io/iron-vigil/forge/src/${comp}"
+
+            # Resolve the mutable tag to an immutable digest ONCE, then verify and
+            # consume that exact digest — no tag re-resolution, no TOCTOU window.
+            if ! digest=$(crane digest "${image}:${ver}" 2>/dev/null); then
+              echo "::error::source artifact ${image}:${ver} not found in GHCR — run the Build Sources workflow first"
+              exit 1
+            fi
+            ref="${image}@${digest}"
+
+            echo "Verifying Cosign signature on ${ref}"
+            # Exact identity, pinned to main — a source artifact is only trusted if
+            # build-sources.yml signed it running on main (reviewed code). A signature
+            # from the same workflow on any other branch is rejected.
+            cosign verify "${ref}" \
+              --certificate-identity="https://github.com/Iron-Vigil/forge/.github/workflows/build-sources.yml@refs/heads/main" \
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
+              > /dev/null
+
+            # FROM scratch artifact has no CMD/ENTRYPOINT — docker create needs a
+            # command token even though the container is only cp'd from, never run.
+            docker create --name "forge-src-${comp}" "${ref}" "/${binary}"
+            mkdir -p "/tmp/forge-src/${comp}"
+            docker cp "forge-src-${comp}:/${binary}" "/tmp/forge-src/${comp}/${binary}"
+            docker rm "forge-src-${comp}"
+            echo "Verified + staged: /tmp/forge-src/${comp}/${binary} (${ref})"
+          done
 
       - name: Setup Packer
         uses: hashicorp/setup-packer@main

@@ -8,7 +8,7 @@
 require_root
 log "component/valkey: installing"
 
-apk_install "valkey=7.2.13-r0"
+apk_install "valkey=9.0.4-r0"
 
 # Package creates the valkey user — verify it landed
 getent passwd valkey > /dev/null 2>&1 || die "valkey user missing after package install"

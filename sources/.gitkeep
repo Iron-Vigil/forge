@@ -1,0 +1,2 @@
+# Dormant. Drop a <name>/ dir here (version, sha256, binary, runtime-deps, build.sh)
+# to source-build a component when Alpine has no usable package. See build-sources.yml.
