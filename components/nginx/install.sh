@@ -21,7 +21,8 @@ log "component/nginx: nginx user ok"
 [ -f /tmp/if_nginx_default.conf ] \
     || die "default.conf not staged — check file provisioner in image.pkr.hcl"
 
-install -m 640 -o root -g nginx /tmp/if_nginx.conf      /etc/nginx/nginx.conf
+install -m 640 -o root -g nginx /tmp/if_nginx.conf /etc/nginx/nginx.conf
+mkdir -p /etc/nginx/conf.d
 install -m 640 -o root -g nginx /tmp/if_nginx_default.conf /etc/nginx/conf.d/default.conf
 
 rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf
