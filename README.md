@@ -19,12 +19,17 @@ Images are tagged by the software version, like the official language images (`h
 | `hardened-python` | `3.12`, `3.14` | Hardened Python runtime on Alpine (base image) | — |
 | `hardened-node` | `22`, `24` | Hardened Node.js runtime on Alpine (base image) | — |
 | `hardened-php-fpm` | `8.3`, `8.4`, `8.5` | Hardened PHP-FPM (common-web extensions) on Alpine | 9000 |
-| `hardened-postgres` | `18` | Hardened PostgreSQL 18 server on Alpine (distroless, server-only) | 5432 |
-| `hardened-mariadb` | `11.8` | Hardened MariaDB 11.8 server on Alpine (distroless, server-only) | 3306 |
+| `hardened-postgres` | `18`, `18-init` | PostgreSQL 18 on Alpine — `18` distroless server-only, `18-init` with a first-run init entrypoint | 5432 |
+| `hardened-mariadb` | `11.8`, `11.8-init` | MariaDB 11.8 on Alpine — `11.8` distroless server-only, `11.8-init` with a first-run init entrypoint | 3306 |
 
 Back-versions Alpine 3.24 doesn't package (`valkey:8`, `python:3.12`, `node:22`) are built on the older still-supported Alpine branch that carries them (declared per-image via `alpine_version` in `meta.yml`). Those bases age toward their own EOL — migrate before then.
 
-The database images are **distroless, server-only** — no shell, non-root, and the data dir is a volume you initialize externally (a k8s operator like CloudNativePG / mariadb-operator, an init container, or a pre-`initdb`'d volume). `-init` variants with a first-run init entrypoint (`docker run`/compose usable) are a separate follow-on.
+Database images ship in two shapes:
+
+- **Distroless, server-only** (`hardened-postgres:18`, `hardened-mariadb:11.8`) — no shell, runs non-root, and the data dir is a volume you initialize externally (a k8s operator like CloudNativePG / mariadb-operator, an init container, or a pre-`initdb`'d volume). This is the default for orchestrated environments.
+- **Init variant** (`hardened-postgres:18-init`, `hardened-mariadb:11.8-init`) — keeps a shell plus a first-run entrypoint that initializes an empty data dir, sets the superuser password, runs `/docker-entrypoint-initdb.d/*.{sh,sql}`, then execs the server. Meant for `docker run` / Compose. The container starts as root only to `chown` the data volume, then drops to the `postgres` / `mysql` user via `su-exec` before the server runs.
+
+The init variants **fail closed**: they refuse to initialize without a password. Postgres needs `POSTGRES_PASSWORD` (or `POSTGRES_PASSWORD_FILE`), or an explicit `POSTGRES_HOST_AUTH_METHOD=trust`. MariaDB needs `MARIADB_ROOT_PASSWORD` (or `_FILE`), `MARIADB_RANDOM_ROOT_PASSWORD=1`, or an explicit `MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1`. Both support the `_FILE` secret convention for every credential.
 
 ---
 
@@ -68,6 +73,25 @@ ENTRYPOINT ["/usr/lib/dotnet/dotnet", "/app/MyApp.dll"]
 ```
 
 Globalization (ICU) is included; ASP.NET Core listens on `8080` as uid 1654.
+
+The database init variants self-initialize an empty volume on first run:
+
+```sh
+# Postgres — password via a mounted secret, seeds run from /docker-entrypoint-initdb.d
+docker run -d \
+  -e POSTGRES_PASSWORD_FILE=/run/secrets/pgpw \
+  -e POSTGRES_DB=appdb \
+  -v pgdata:/var/lib/postgresql/data \
+  -v ./seed.sql:/docker-entrypoint-initdb.d/10-seed.sql:ro \
+  ghcr.io/iron-vigil/forge/hardened-postgres:18-init
+
+# MariaDB — root + an application user/db in one shot
+docker run -d \
+  -e MARIADB_ROOT_PASSWORD_FILE=/run/secrets/rootpw \
+  -e MARIADB_DATABASE=appdb -e MARIADB_USER=app -e MARIADB_PASSWORD_FILE=/run/secrets/apppw \
+  -v mysqldata:/var/lib/mysql \
+  ghcr.io/iron-vigil/forge/hardened-mariadb:11.8-init
+```
 
 Verify the Cosign signature (same command for all images, swap the image ref):
 
@@ -145,8 +169,10 @@ images/                     # dir = hardened-<sw>-<ver>; published name/tag come
   hardened-php-fpm-8.3/     # -> hardened-php-fpm:8.3
   hardened-php-fpm-8.4/     # -> hardened-php-fpm:8.4
   hardened-php-fpm-8.5/     # -> hardened-php-fpm:8.5  (latest)
-  hardened-postgres-18/     # -> hardened-postgres:18  (distroless, server-only)
-  hardened-mariadb-11.8/    # -> hardened-mariadb:11.8 (distroless, server-only)
+  hardened-postgres-18/     # -> hardened-postgres:18       (distroless, server-only)
+  hardened-postgres-18-init/# -> hardened-postgres:18-init  (init entrypoint)
+  hardened-mariadb-11.8/    # -> hardened-mariadb:11.8      (distroless, server-only)
+  hardened-mariadb-11.8-init/# -> hardened-mariadb:11.8-init (init entrypoint)
 
 security/
   grype.yaml                # Grype scan config
