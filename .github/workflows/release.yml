@@ -109,14 +109,22 @@ jobs:
           comps=$(awk '/^components:/{f=1;next} f && /^ *-/{print $2} f && !/^ *-/{exit}' images/${{ inputs.image }}/meta.yml | tr '\n' ' ')
           echo "list=${comps}" >> "$GITHUB_OUTPUT"
 
-      - name: Create release
-        uses: actions/create-release@v1
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Stage release assets
+        run: |
+          d=reports
+          i="${{ inputs.image }}"
+          v="${{ inputs.version }}"
+          cp "$d/grype-report.json"   "$d/grype-report-${i}-${v}.json"
+          cp "$d/sbom.spdx.json"      "$d/sbom-${i}-${v}.spdx.json"
+          cp "$d/sbom.cyclonedx.json" "$d/sbom-${i}-${v}.cyclonedx.json"
+          cp "$d/grype-summary.txt"   "$d/grype-summary-${i}-${v}.txt"
+
+      - name: Create/update release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.image_name }}/v${{ inputs.version }}
-          release_name: ${{ inputs.image_name }} v${{ inputs.version }}
+          name: ${{ inputs.image_name }} v${{ inputs.version }}
+          # upsert — re-running refreshes an existing release's body and assets
           body: |
             ## ${{ inputs.image_name }} v${{ inputs.version }}
 
@@ -150,45 +158,10 @@ jobs:
             Deduped by CVE id, grouped by severity (collapsed — click to expand). Full report and SBOM attached below; SARIF is in the [Security tab](../../security/code-scanning).
 
             ${{ steps.cve_detail.outputs.md }}
+          files: |
+            reports/grype-report-${{ inputs.image }}-${{ inputs.version }}.json
+            reports/sbom-${{ inputs.image }}-${{ inputs.version }}.spdx.json
+            reports/sbom-${{ inputs.image }}-${{ inputs.version }}.cyclonedx.json
+            reports/grype-summary-${{ inputs.image }}-${{ inputs.version }}.txt
           draft: false
           prerelease: false
-
-      - name: Attach Grype report
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: reports/grype-report.json
-          asset_name: grype-report-${{ inputs.image }}-${{ inputs.version }}.json
-          asset_content_type: application/json
-
-      - name: Attach SBOM (SPDX)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: reports/sbom.spdx.json
-          asset_name: sbom-${{ inputs.image }}-${{ inputs.version }}.spdx.json
-          asset_content_type: application/json
-
-      - name: Attach SBOM (CycloneDX)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: reports/sbom.cyclonedx.json
-          asset_name: sbom-${{ inputs.image }}-${{ inputs.version }}.cyclonedx.json
-          asset_content_type: application/json
-
-      - name: Attach Grype summary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: reports/grype-summary.txt
-          asset_name: grype-summary-${{ inputs.image }}-${{ inputs.version }}.txt
-          asset_content_type: text/plain
