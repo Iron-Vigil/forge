@@ -3,9 +3,8 @@
 # This runs LAST. After this, no shell, no apk. Image is committed immediately after.
 # Do not add steps after this in the Packer build sequence.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
-. "${SCRIPT_DIR}/../../components/_lib/apk.sh"
+. /tmp/forge-lib/common.sh
+. /tmp/forge-lib/apk.sh
 
 require_root
 log "hardening: beginning final strip — this is the point of no return"

@@ -2,9 +2,8 @@
 # Component: openssh
 # Installs and configures OpenSSH server with hardened defaults
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../_lib/common.sh"
-. "${SCRIPT_DIR}/../_lib/apk.sh"
+. /tmp/forge-lib/common.sh
+. /tmp/forge-lib/apk.sh
 
 require_root
 log "component/openssh: installing"

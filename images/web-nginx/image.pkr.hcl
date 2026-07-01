@@ -40,8 +40,14 @@ source "docker" "web_nginx" {
 build {
   sources = ["source.docker.web_nginx"]
 
+  # Stage shared lib to a known path inside the container
+  # Must be first — all scripts source from /tmp/forge-lib/
+  provisioner "file" {
+    source      = "${path.root}/../../components/_lib/"
+    destination = "/tmp/forge-lib/"
+  }
+
   # Base hardening — runs before any component
-  # path.root anchors to the HCL file directory; ../../ walks to repo root
   provisioner "shell" {
     scripts = [
       "${path.root}/../../base/hardening/01-packages.sh",

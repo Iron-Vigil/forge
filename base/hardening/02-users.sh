@@ -2,8 +2,7 @@
 # Hardening pass 2 — remove or lock unnecessary system accounts
 # Alpine base ships with accounts that have no role in a container
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
+. /tmp/forge-lib/common.sh
 
 require_root
 log "hardening: locking/removing unnecessary system accounts"

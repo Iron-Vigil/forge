@@ -2,8 +2,7 @@
 # Hardening pass 3 — strip SUID/SGID bits
 # Allowlist anything that legitimately needs it; strip everything else
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
+. /tmp/forge-lib/common.sh
 
 require_root
 log "hardening: stripping SUID/SGID bits"

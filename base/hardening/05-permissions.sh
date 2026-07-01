@@ -2,8 +2,7 @@
 # Hardening pass 5 — filesystem permissions
 # Tighten world-writable dirs, set umask, restrict sensitive files
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
+. /tmp/forge-lib/common.sh
 
 require_root
 log "hardening: tightening filesystem permissions"
