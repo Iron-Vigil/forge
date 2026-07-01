@@ -133,8 +133,11 @@ jobs:
             ref="${image}@${digest}"
 
             echo "Verifying Cosign signature on ${ref}"
+            # Exact identity, pinned to main — a source artifact is only trusted if
+            # build-sources.yml signed it running on main (reviewed code). A signature
+            # from the same workflow on any other branch is rejected.
             cosign verify "${ref}" \
-              --certificate-identity-regexp="^https://github\.com/Iron-Vigil/forge/\.github/workflows/build-sources\.yml@" \
+              --certificate-identity="https://github.com/Iron-Vigil/forge/.github/workflows/build-sources.yml@refs/heads/main" \
               --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
               > /dev/null
 
