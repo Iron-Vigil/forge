@@ -1,0 +1,22 @@
+name: hardened-php-fpm
+tag: "8.5"
+latest: true
+description: Hardened PHP-FPM 8.5 on Alpine
+
+components:
+  - php-fpm-8.5
+
+expose:
+  - 9000
+
+run_as: app
+entrypoint: ["/usr/sbin/php-fpm85", "-F"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-php-fpm
+  org.opencontainers.image.description: Hardened PHP-FPM 8.5 on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge
