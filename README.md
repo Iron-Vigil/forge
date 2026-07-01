@@ -19,8 +19,12 @@ Images are tagged by the software version, like the official language images (`h
 | `hardened-python` | `3.12`, `3.14` | Hardened Python runtime on Alpine (base image) | — |
 | `hardened-node` | `22`, `24` | Hardened Node.js runtime on Alpine (base image) | — |
 | `hardened-php-fpm` | `8.3`, `8.4`, `8.5` | Hardened PHP-FPM (common-web extensions) on Alpine | 9000 |
+| `hardened-postgres` | `18` | Hardened PostgreSQL 18 server on Alpine (distroless, server-only) | 5432 |
+| `hardened-mariadb` | `11.8` | Hardened MariaDB 11.8 server on Alpine (distroless, server-only) | 3306 |
 
 Back-versions Alpine 3.24 doesn't package (`valkey:8`, `python:3.12`, `node:22`) are built on the older still-supported Alpine branch that carries them (declared per-image via `alpine_version` in `meta.yml`). Those bases age toward their own EOL — migrate before then.
+
+The database images are **distroless, server-only** — no shell, non-root, and the data dir is a volume you initialize externally (a k8s operator like CloudNativePG / mariadb-operator, an init container, or a pre-`initdb`'d volume). `-init` variants with a first-run init entrypoint (`docker run`/compose usable) are a separate follow-on.
 
 ---
 
@@ -141,6 +145,8 @@ images/                     # dir = hardened-<sw>-<ver>; published name/tag come
   hardened-php-fpm-8.3/     # -> hardened-php-fpm:8.3
   hardened-php-fpm-8.4/     # -> hardened-php-fpm:8.4
   hardened-php-fpm-8.5/     # -> hardened-php-fpm:8.5  (latest)
+  hardened-postgres-18/     # -> hardened-postgres:18  (distroless, server-only)
+  hardened-mariadb-11.8/    # -> hardened-mariadb:11.8 (distroless, server-only)
 
 security/
   grype.yaml                # Grype scan config
