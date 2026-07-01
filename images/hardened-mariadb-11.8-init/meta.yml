@@ -1,0 +1,22 @@
+name: hardened-mariadb
+tag: "11.8-init"
+latest: false
+description: MariaDB 11.8 with first-run init entrypoint (docker/compose)
+
+components:
+  - mariadb-11-init
+
+expose:
+  - 3306
+
+run_as: root
+entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+
+distroless: false
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-mariadb
+  org.opencontainers.image.description: MariaDB 11.8 (init variant) on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

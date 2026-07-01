@@ -1,0 +1,22 @@
+name: hardened-postgres
+tag: "18-init"
+latest: false
+description: PostgreSQL 18 with first-run init entrypoint (docker/compose)
+
+components:
+  - postgres-18-init
+
+expose:
+  - 5432
+
+run_as: root
+entrypoint: ["/usr/local/bin/docker-entrypoint.sh"]
+
+distroless: false
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-postgres
+  org.opencontainers.image.description: PostgreSQL 18 (init variant) on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

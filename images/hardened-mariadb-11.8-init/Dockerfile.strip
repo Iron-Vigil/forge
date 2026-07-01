@@ -1,0 +1,23 @@
+ARG BASE
+ARG BUILD_DATE
+ARG VCS_REF
+ARG IMAGE_VERSION
+ARG IMAGE_DESCRIPTION
+
+# NOT distroless. The init entrypoint needs a shell (and su-exec) to initialize
+# the data dir on first run and drop privileges, so we keep the Packer image as-is
+# (busybox stays). Single stage: relabel and wire the entrypoint. Container starts
+# as root; the entrypoint drops to mysql via su-exec before exec'ing the server.
+FROM ${BASE}
+
+LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
+      org.opencontainers.image.vendor="IronVigil" \
+      org.opencontainers.image.title="hardened-mariadb" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="GPL-2.0-only"
+
+EXPOSE 3306
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
