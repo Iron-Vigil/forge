@@ -19,6 +19,10 @@ on:
         description: 'Run ID of the scan workflow (for artifact download)'
         required: true
         type: string
+      image_digest:
+        description: 'Full image ref with digest (passed from scan, avoids a GHCR pull here)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -43,8 +47,10 @@ jobs:
       - name: Get image digest
         id: digest
         run: |
-          docker pull ${{ inputs.image_ref }} --quiet
-          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ inputs.image_ref }})
+          digest="${{ inputs.image_digest }}"
+          if [ -z "$digest" ]; then
+            digest="${{ inputs.image_ref }}"
+          fi
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Build CVE summary
