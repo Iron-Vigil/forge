@@ -57,17 +57,43 @@ jobs:
           fi
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
-      - name: Build CVE summary
-        id: cve_summary
+      - name: Build CVE detail sections
+        id: cve_detail
         run: |
-          crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' reports/grype-report.json)
-          highs=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' reports/grype-report.json)
-          mediums=$(jq '[.matches[] | select(.vulnerability.severity == "Medium")] | length' reports/grype-report.json)
-          lows=$(jq '[.matches[] | select(.vulnerability.severity == "Low")] | length' reports/grype-report.json)
-          echo "crits=${crits}" >> "$GITHUB_OUTPUT"
-          echo "highs=${highs}" >> "$GITHUB_OUTPUT"
-          echo "mediums=${mediums}" >> "$GITHUB_OUTPUT"
-          echo "lows=${lows}" >> "$GITHUB_OUTPUT"
+          report=reports/grype-report.json
+
+          # One collapsed <details> per severity, deduped by CVE id, each line
+          # "- [id](advisory-link) — short desc". Emitted as a multiline output.
+          section() {
+            sev="$1"
+            items=$(jq -r --arg sev "$sev" '
+              [ .matches[]
+                | select(.vulnerability.severity == $sev)
+                | { id:  .vulnerability.id,
+                    url: (if (.vulnerability.dataSource // "") == "" then "https://osv.dev/vulnerability/" + .vulnerability.id else .vulnerability.dataSource end),
+                    desc:(.vulnerability.description // "") } ]
+              | unique_by(.id)
+              | sort_by(.id)
+              | .[]
+              | "- [\(.id)](\(.url))"
+                + (if .desc == "" then "" else " — " + (.desc | gsub("[\r\n]+"; " ") | .[0:160]) end)
+            ' "$report")
+            n=$(printf "%s\n" "$items" | grep -c . || true)
+            if [ "$n" -eq 0 ]; then
+              printf "<details><summary>%s (0)</summary>\n\nnone\n</details>\n\n" "$sev"
+            else
+              printf "<details><summary>%s (%s)</summary>\n\n%s\n\n</details>\n\n" "$sev" "$n" "$items"
+            fi
+          }
+
+          {
+            echo "md<<GRYPE_EOF"
+            section Critical
+            section High
+            section Medium
+            section Low
+            echo "GRYPE_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Get Alpine version
         id: alpine
@@ -119,16 +145,11 @@ jobs:
             | Built by | Actions run [`${{ github.run_id }}`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
             | Commit | `${{ github.sha }}` |
 
-            ### CVE summary (Grype)
+            ### CVEs (Grype)
 
-            | Severity | Count |
-            |---|---|
-            | Critical | ${{ steps.cve_summary.outputs.crits }} |
-            | High | ${{ steps.cve_summary.outputs.highs }} |
-            | Medium | ${{ steps.cve_summary.outputs.mediums }} |
-            | Low | ${{ steps.cve_summary.outputs.lows }} |
+            Deduped by CVE id, grouped by severity (collapsed — click to expand). Full report and SBOM attached below; SARIF is in the [Security tab](../../security/code-scanning).
 
-            Full report attached below. SARIF results are in the [Security tab](../../security/code-scanning).
+            ${{ steps.cve_detail.outputs.md }}
           draft: false
           prerelease: false
 
