@@ -2,6 +2,7 @@
 # Hardening pass 6 — final strip
 # Runs last. Removes apk, compilers, caches, network tools.
 # Does NOT remove /bin/sh — Packer needs it for post-script cleanup.
+# Busybox and all its symlinks are removed post-Packer in each image's Dockerfile.strip.
 
 . /tmp/forge-lib/common.sh
 . /tmp/forge-lib/apk.sh
@@ -36,4 +37,4 @@ rm -f \
 # Clean staging lib — all scripts are done
 rm -rf /tmp/forge-lib
 
-log "hardening: strip complete — apk removed, network tools removed, image ready for commit"
+log "hardening: strip complete — apk removed, network tools removed, image ready for Dockerfile.strip"

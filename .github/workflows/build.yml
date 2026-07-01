@@ -132,6 +132,24 @@ jobs:
           echo "image_ref=${ref}" >> "$GITHUB_OUTPUT"
           echo "Built: ${ref}"
 
+      - name: Distroless strip
+        run: |
+          VER="${{ steps.version.outputs.version }}"
+          IMAGE="ghcr.io/iron-vigil/forge/${{ matrix.image }}"
+          DESC=$(grep '^description:' "images/${{ matrix.image }}/meta.yml" | cut -d: -f2- | tr -d '"' | xargs)
+
+          docker build \
+            --build-arg "BASE=${IMAGE}:${VER}" \
+            --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg "VCS_REF=${{ github.sha }}" \
+            --build-arg "IMAGE_VERSION=${VER}" \
+            --build-arg "IMAGE_DESCRIPTION=${DESC}" \
+            --no-cache \
+            -t "${IMAGE}:${VER}" \
+            -t "${IMAGE}:latest" \
+            -f "images/${{ matrix.image }}/Dockerfile.strip" \
+            .
+
       - name: Push image
         run: |
           docker push ghcr.io/iron-vigil/forge/${{ matrix.image }}:${{ steps.version.outputs.version }}

@@ -1,0 +1,40 @@
+ARG BASE
+ARG BUILD_DATE
+ARG VCS_REF
+ARG IMAGE_VERSION
+ARG IMAGE_DESCRIPTION
+
+FROM ${BASE} AS stage
+# Shell is available here — used to remove itself and all busybox symlinks.
+# Stage 2 copies from the merged FS: busybox is gone, nothing points at it.
+RUN set -eu; \
+    rm -f /bin/busybox; \
+    find /bin /sbin -maxdepth 1 -type l -delete 2>/dev/null; \
+    find /usr/bin /usr/sbin /usr/local/bin -maxdepth 1 -type l 2>/dev/null | \
+        while read -r f; do \
+            target=$(readlink "$f" 2>/dev/null) || continue; \
+            case "$target" in *busybox*) rm -f "$f";; esac; \
+        done; \
+    rm -f /usr/bin/valkey-cli /usr/bin/valkey-benchmark \
+          /usr/bin/valkey-check-aof /usr/bin/valkey-check-rdb \
+          /usr/bin/valkey-sentinel; \
+    rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
+    true
+
+FROM scratch
+COPY --from=stage / /
+ARG BUILD_DATE
+ARG VCS_REF
+ARG IMAGE_VERSION
+ARG IMAGE_DESCRIPTION
+LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
+      org.opencontainers.image.vendor="IronVigil" \
+      org.opencontainers.image.title="cache-valkey" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="BSD-3-Clause"
+EXPOSE 6379
+USER valkey
+ENTRYPOINT ["/usr/bin/valkey-server", "/etc/valkey/valkey.conf"]
