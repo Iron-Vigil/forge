@@ -5,6 +5,9 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 
 FROM ${BASE} AS stage
+# The base image commits USER valkey, so the strip must switch back to root to
+# remove root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
+USER root
 # Shell is available here — used to remove itself and all busybox symlinks.
 # Stage 2 copies from the merged FS: busybox is gone, nothing points at it.
 RUN set -eu; \
