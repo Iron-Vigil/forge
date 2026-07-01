@@ -1,0 +1,20 @@
+name: hardened-node
+tag: "22"
+latest: false
+alpine_version: "3.22"
+description: Hardened Node.js 22 LTS runtime on Alpine 3.22
+
+components:
+  - node-22
+
+run_as: app
+entrypoint: ["/usr/bin/node"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-node
+  org.opencontainers.image.description: Hardened Node.js 22 on Alpine 3.22
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge
