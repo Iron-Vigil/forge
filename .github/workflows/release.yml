@@ -72,7 +72,9 @@ jobs:
       - name: Get Alpine version
         id: alpine
         run: |
-          ver=$(grep 'alpine_version' base/alpine.pkrvars.hcl | cut -d'"' -f2)
+          # Per-image override (back-version images) wins; else the shared pin.
+          ver=$(grep '^alpine_version:' "images/${{ inputs.image }}/meta.yml" | awk '{print $2}' | tr -d '"')
+          [ -z "$ver" ] && ver=$(grep 'alpine_version' base/alpine.pkrvars.hcl | cut -d'"' -f2)
           echo "version=${ver}" >> "$GITHUB_OUTPUT"
 
       - name: Get components list

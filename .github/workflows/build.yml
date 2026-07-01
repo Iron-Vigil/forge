@@ -170,15 +170,26 @@ jobs:
           name=$(grep '^name:'   "$m" | awk '{print $2}' | tr -d '"')
           tag=$(grep  '^tag:'    "$m" | awk '{print $2}' | tr -d '"')
           latest=$(grep '^latest:' "$m" | awk '{print $2}' | tr -d '"')
+          # Optional per-image Alpine override — back-version images pin the older
+          # (still-supported) Alpine branch that packages their runtime. Blank =
+          # use the shared base/alpine.pkrvars.hcl pin.
+          alpine=$(grep '^alpine_version:' "$m" | awk '{print $2}' | tr -d '"')
           echo "name=${name}"     >> "$GITHUB_OUTPUT"
           echo "tag=${tag}"       >> "$GITHUB_OUTPUT"
           echo "latest=${latest}" >> "$GITHUB_OUTPUT"
+          echo "alpine=${alpine}" >> "$GITHUB_OUTPUT"
 
       - name: Build image
         id: build
         run: |
+          # A per-image -var (after the var-file) overrides the shared alpine pin.
+          alpine_override=""
+          [ -n "${{ steps.meta.outputs.alpine }}" ] && \
+            alpine_override="-var alpine_version=${{ steps.meta.outputs.alpine }}"
+
           packer build \
             -var-file=base/alpine.pkrvars.hcl \
+            ${alpine_override} \
             -var "image_version=${{ steps.meta.outputs.tag }}" \
             -var "registry=ghcr.io/iron-vigil/forge" \
             images/${{ matrix.image }}/
