@@ -1,0 +1,22 @@
+name: hardened-postgres
+tag: "18"
+latest: true
+description: Hardened PostgreSQL 18 server on Alpine (distroless, operator-init)
+
+components:
+  - postgres-18
+
+expose:
+  - 5432
+
+run_as: postgres
+entrypoint: ["/usr/libexec/postgresql18/postgres"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-postgres
+  org.opencontainers.image.description: Hardened PostgreSQL 18 on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge
