@@ -46,7 +46,7 @@
       "fileMatch": ["^components/.+/install\\.sh$"],
       "matchStrings": ["apk_install\\s+\"(?<depName>[a-z0-9_-]+)=(?<currentValue>[^\"]+)\""],
       "datasourceTemplate": "repology",
-      "packageNameTemplate": "alpine_3_21/{{depName}}"
+      "packageNameTemplate": "alpine_3_24/{{depName}}"
     },
     {
       "description": "Packer plugin versions in image HCL files",

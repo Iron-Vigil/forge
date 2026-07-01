@@ -1,0 +1,86 @@
+name: Alpine Version Check
+
+# Watches https://alpinelinux.org/releases.json for a stable branch newer than
+# the one pinned in base/alpine.pkrvars.hcl and files a tracking issue when we
+# fall behind. Renovate tracks the same pin (.github/renovate.json) but is not
+# yet enabled org-wide — this runs regardless and needs no external app.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Compare pinned Alpine to latest stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare versions
+        id: check
+        run: |
+          latest=$(curl -sSfL https://alpinelinux.org/releases.json | jq -r '.latest_stable' | sed 's/^v//')
+          pinned=$(grep -E '^alpine_version' base/alpine.pkrvars.hcl | sed -E 's/.*"([^"]+)".*/\1/')
+          [ -n "$latest" ] || { echo "::error::could not resolve latest Alpine from releases.json"; exit 1; }
+          [ -n "$pinned" ] || { echo "::error::could not resolve pinned alpine_version"; exit 1; }
+          echo "latest=${latest}" >> "$GITHUB_OUTPUT"
+          echo "pinned=${pinned}" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$pinned" ]; then
+            echo "behind=false" >> "$GITHUB_OUTPUT"
+            echo "Up to date — pinned=${pinned} latest=${latest}"
+          else
+            echo "behind=true" >> "$GITHUB_OUTPUT"
+            echo "Behind — pinned=${pinned} latest=${latest}"
+          fi
+
+      - name: Open or update tracking issue
+        if: steps.check.outputs.behind == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LATEST: ${{ steps.check.outputs.latest }}
+          PINNED: ${{ steps.check.outputs.pinned }}
+        run: |
+          gh label create alpine-bump --color FBCA04 \
+            --description "Alpine base is behind latest stable" 2>/dev/null || true
+
+          old="${PINNED//./_}"
+          new="${LATEST//./_}"
+          printf '%s\n' \
+            "Alpine **${LATEST}** is now the latest stable branch. The factory is pinned to **${PINNED}** in \`base/alpine.pkrvars.hcl\`." \
+            "" \
+            "Policy: track the latest Alpine stable unless it carries a blocking CVE." \
+            "" \
+            "- [ ] Check ${LATEST} for blocking CVEs / breaking package bumps" \
+            "- [ ] \`alpine_version\` → \`${LATEST}\` in \`base/alpine.pkrvars.hcl\` and the \`default\` in each \`images/*/image.pkr.hcl\`" \
+            "- [ ] Repology path in \`.github/renovate.json\`: \`alpine_${old}\` → \`alpine_${new}\`" \
+            "- [ ] Update exact APK pins that changed in ${LATEST}" \
+            "- [ ] Let build → scan validate (Grype gates any CVE)" \
+            "" \
+            "_Filed by \`.github/workflows/alpine-version-check.yml\`._" \
+            > /tmp/issue-body.md
+
+          title="Alpine ${LATEST} is out — factory pinned to ${PINNED}"
+          existing=$(gh issue list --label alpine-bump --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --title "$title" --body-file /tmp/issue-body.md
+            echo "Updated issue #${existing}"
+          else
+            gh issue create --title "$title" --body-file /tmp/issue-body.md --label alpine-bump
+          fi
+
+      - name: Close tracking issue when caught up
+        if: steps.check.outputs.behind == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PINNED: ${{ steps.check.outputs.pinned }}
+        run: |
+          existing=$(gh issue list --label alpine-bump --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Caught up — factory now pinned to Alpine ${PINNED}. Closing."
+            gh issue close "$existing"
+          fi
