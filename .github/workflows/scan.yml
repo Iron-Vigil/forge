@@ -148,6 +148,7 @@ jobs:
               inputs: {
                 image: '${{ inputs.image }}',
                 image_ref: '${{ inputs.image_ref }}',
+                image_digest: '${{ inputs.image_digest }}',
                 version: '${{ inputs.version }}',
                 scan_run_id: String(context.runId),
               }
