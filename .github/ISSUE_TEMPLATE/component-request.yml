@@ -1,0 +1,58 @@
+name: Component Request
+description: Request a new shared install component
+labels: ["component-request"]
+body:
+  - type: input
+    id: component_name
+    attributes:
+      label: Component name
+      description: Lowercase, matches the software name (e.g. nginx, redis, python3)
+      placeholder: redis
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What does this component install and why does it need to be shared?
+    validations:
+      required: true
+
+  - type: input
+    id: package
+    attributes:
+      label: APK package name and exact version
+      description: Run `apk search --exact <name>` to get the version string
+      placeholder: "redis=7.2.4-r0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Hardened config requirements
+      description: What config changes are needed beyond the package defaults?
+
+  - type: input
+    id: requested_by
+    attributes:
+      label: Requested by
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Normal
+        - High
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes

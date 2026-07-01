@@ -1,0 +1,18 @@
+# ImageFactory CODEOWNERS
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — IronVigil org team owns everything
+*                           @Iron-Vigil/forge
+
+# Base hardening and shared libs — tighter review
+/base/                      @Iron-Vigil/forge
+/components/_lib/           @Iron-Vigil/forge
+
+# Workflows
+/.github/workflows/         @Iron-Vigil/forge
+
+# Security config
+/security/                  @Iron-Vigil/forge
+
+# Individual images — component owners can contribute here
+/images/web-nginx/          @Iron-Vigil/forge

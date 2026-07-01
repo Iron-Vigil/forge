@@ -1,0 +1,92 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    name: Triage issue
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'image-request') || contains(github.event.issue.labels.*.name, 'component-request')
+
+    steps:
+      - name: Label as pending review
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['status: pending-review']
+            });
+
+      - name: Post triage checklist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const isImageRequest = context.payload.issue.labels?.some(l => l.name === 'image-request');
+            const isComponentRequest = context.payload.issue.labels?.some(l => l.name === 'component-request');
+
+            let body = '';
+            if (isImageRequest) {
+              body = `## Image Request Received
+
+            Thanks for the request. Before this moves to implementation, the following must be completed:
+
+            **Review checklist**
+            - [ ] Use case is clearly defined
+            - [ ] Required components exist in \`components/\` or component requests are filed separately
+            - [ ] Security requirements reviewed by IronVigil team
+            - [ ] No existing image covers this use case
+            - [ ] Image name follows \`<type>-<service>\` convention (e.g. \`web-nginx\`, \`app-node\`)
+
+            **Implementation checklist**
+            - [ ] \`images/<name>/meta.yml\` created
+            - [ ] \`images/<name>/image.pkr.hcl\` created
+            - [ ] PR opened and \`validate\` workflow passes
+            - [ ] Build + scan passes on merge
+
+            Triage target: 5 business days. Ping \`@Iron-Vigil/forge\` if urgent.`;
+            } else if (isComponentRequest) {
+              body = `## Component Request Received
+
+            **Review checklist**
+            - [ ] Use case and rationale are clearly defined
+            - [ ] No existing component covers this
+            - [ ] Component can be made idempotent (safe to re-run)
+            - [ ] Exact version pin identified
+
+            **Implementation checklist**
+            - [ ] \`components/<name>/install.sh\` created and sources \`_lib/common.sh\`
+            - [ ] Config files included with hardened defaults
+            - [ ] Referenced by at least one image in the same PR
+            - [ ] ShellCheck passes
+
+            Triage target: 5 business days.`;
+            }
+
+            if (body) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Assign to team
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Assign to the forge team — team must exist in the Iron-Vigil org
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              assignees: []   // populate with GitHub usernames or use team review assignment
+            }).catch(() => {});  // non-fatal if team assignment fails

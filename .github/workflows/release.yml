@@ -1,0 +1,161 @@
+name: Release Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Image name'
+        required: true
+        type: string
+      image_ref:
+        description: 'Full image ref with tag'
+        required: true
+        type: string
+      version:
+        description: 'Image version'
+        required: true
+        type: string
+      scan_run_id:
+        description: 'Run ID of the scan workflow (for artifact download)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  release:
+    name: Release ${{ inputs.image }} v${{ inputs.version }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download scan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: scan-${{ inputs.image }}-${{ inputs.version }}
+          path: reports/
+          run-id: ${{ inputs.scan_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get image digest
+        id: digest
+        run: |
+          docker pull ${{ inputs.image_ref }} --quiet
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ inputs.image_ref }})
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Build CVE summary
+        id: cve_summary
+        run: |
+          crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' reports/grype-report.json)
+          highs=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' reports/grype-report.json)
+          mediums=$(jq '[.matches[] | select(.vulnerability.severity == "Medium")] | length' reports/grype-report.json)
+          lows=$(jq '[.matches[] | select(.vulnerability.severity == "Low")] | length' reports/grype-report.json)
+          echo "crits=${crits}" >> "$GITHUB_OUTPUT"
+          echo "highs=${highs}" >> "$GITHUB_OUTPUT"
+          echo "mediums=${mediums}" >> "$GITHUB_OUTPUT"
+          echo "lows=${lows}" >> "$GITHUB_OUTPUT"
+
+      - name: Get Alpine version
+        id: alpine
+        run: |
+          ver=$(grep 'alpine_version' base/alpine.pkrvars.hcl | cut -d'"' -f2)
+          echo "version=${ver}" >> "$GITHUB_OUTPUT"
+
+      - name: Get components list
+        id: components
+        run: |
+          comps=$(grep -A 20 '^components:' images/${{ inputs.image }}/meta.yml | grep '^  - ' | awk '{print $2}' | tr '\n' ' ')
+          echo "list=${comps}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ inputs.image }}/v${{ inputs.version }}
+          release_name: ${{ inputs.image }} v${{ inputs.version }}
+          body: |
+            ## ${{ inputs.image }} v${{ inputs.version }}
+
+            ### Pull
+
+            ```
+            docker pull ${{ inputs.image_ref }}
+            ```
+
+            **Digest:** `${{ steps.digest.outputs.digest }}`
+
+            ### Verify signature
+
+            ```
+            cosign verify ghcr.io/iron-vigil/forge/${{ inputs.image }}:${{ inputs.version }} \
+              --certificate-identity-regexp="https://github.com/Iron-Vigil/forge" \
+              --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+            ```
+
+            ### Build info
+
+            | | |
+            |---|---|
+            | Alpine base | `${{ steps.alpine.outputs.version }}` |
+            | Components | `${{ steps.components.outputs.list }}` |
+            | Built by | Actions run [`${{ github.run_id }}`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+            | Commit | `${{ github.sha }}` |
+
+            ### CVE summary (Grype)
+
+            | Severity | Count |
+            |---|---|
+            | Critical | ${{ steps.cve_summary.outputs.crits }} |
+            | High | ${{ steps.cve_summary.outputs.highs }} |
+            | Medium | ${{ steps.cve_summary.outputs.mediums }} |
+            | Low | ${{ steps.cve_summary.outputs.lows }} |
+
+            Full report attached below. SARIF results are in the [Security tab](../../security/code-scanning).
+          draft: false
+          prerelease: false
+
+      - name: Attach Grype report
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: reports/grype-report.json
+          asset_name: grype-report-${{ inputs.image }}-${{ inputs.version }}.json
+          asset_content_type: application/json
+
+      - name: Attach SBOM (SPDX)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: reports/sbom.spdx.json
+          asset_name: sbom-${{ inputs.image }}-${{ inputs.version }}.spdx.json
+          asset_content_type: application/json
+
+      - name: Attach SBOM (CycloneDX)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: reports/sbom.cyclonedx.json
+          asset_name: sbom-${{ inputs.image }}-${{ inputs.version }}.cyclonedx.json
+          asset_content_type: application/json
+
+      - name: Attach Grype summary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: reports/grype-summary.txt
+          asset_name: grype-summary-${{ inputs.image }}-${{ inputs.version }}.txt
+          asset_content_type: text/plain

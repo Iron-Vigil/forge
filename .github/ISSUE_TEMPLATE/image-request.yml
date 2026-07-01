@@ -1,0 +1,98 @@
+name: Image Request
+description: Request a new hardened image
+labels: ["image-request"]
+body:
+  - type: input
+    id: image_name
+    attributes:
+      label: Image name
+      description: Lowercase, hyphenated. Convention is <type>-<service> (e.g. web-nginx, app-node, db-postgres)
+      placeholder: web-nginx
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What is this image for? Who will use it? What does it run?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: components
+    attributes:
+      label: Required components
+      description: Select existing components to include. For new components, file a component-request first.
+      options:
+        - label: openssh
+        - label: nginx
+        - label: nodejs
+        - label: python3
+
+  - type: input
+    id: components_other
+    attributes:
+      label: Additional components (not listed above)
+      description: If you need components not listed, name them here. File component-request issues for any that don't exist yet.
+      placeholder: "redis, curl"
+
+  - type: input
+    id: expose
+    attributes:
+      label: Ports to expose
+      placeholder: "80, 443"
+
+  - type: input
+    id: entrypoint
+    attributes:
+      label: Entrypoint / command
+      placeholder: "/usr/sbin/nginx -g 'daemon off;'"
+
+  - type: input
+    id: run_as
+    attributes:
+      label: Run as user
+      description: Leave blank to default to nobody
+      placeholder: nginx
+
+  - type: dropdown
+    id: distroless
+    attributes:
+      label: Distroless (strip shell + apk from final image)
+      description: Default is yes. Only say no if there's a specific runtime requirement for a shell.
+      options:
+        - "Yes (default)"
+        - "No — reason below"
+    validations:
+      required: true
+
+  - type: input
+    id: requested_by
+    attributes:
+      label: Requested by
+      description: Org, team, or individual
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - Low
+        - Normal
+        - High
+    validations:
+      required: true
+
+  - type: textarea
+    id: security_notes
+    attributes:
+      label: Security requirements or constraints
+      description: Anything specific beyond the standard hardening baseline
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
