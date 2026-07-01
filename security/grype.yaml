@@ -3,7 +3,8 @@
 
 output: json
 
-fail-on-severity: critical
+# No fail-on-severity here — the scan workflow handles the CRITICAL gate explicitly
+# so all three output formats (sarif, json, table) complete before we check.
 
 ignore:
   # Add known false positives here with justification and expiry date
