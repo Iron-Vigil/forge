@@ -75,7 +75,8 @@ jobs:
           fail=0
           for meta in images/*/meta.yml; do
             image=$(dirname "$meta" | xargs basename)
-            components=$(grep -A 20 '^components:' "$meta" | grep '^  - ' | awk '{print $2}')
+            # awk: collect lines under ^components: until the next top-level key
+            components=$(awk '/^components:/{f=1;next} f&&/^[^ ]/{exit} f&&/^  - /{print $2}' "$meta")
             for comp in $components; do
               if [ ! -d "components/$comp" ]; then
                 echo "ERROR: $image references component '$comp' but components/$comp does not exist"
