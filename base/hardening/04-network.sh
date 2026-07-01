@@ -3,8 +3,7 @@
 # Docker containers share the host kernel but have their own network namespace.
 # These settings apply within the container's namespace where supported.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
+. /tmp/forge-lib/common.sh
 
 require_root
 log "hardening: applying network sysctl settings"

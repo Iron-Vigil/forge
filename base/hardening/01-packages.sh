@@ -2,9 +2,8 @@
 # Hardening pass 1 — remove unnecessary Alpine base packages
 # Runs before any component installs. apk-tools stays until the strip step.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../../components/_lib/common.sh"
-. "${SCRIPT_DIR}/../../components/_lib/apk.sh"
+. /tmp/forge-lib/common.sh
+. /tmp/forge-lib/apk.sh
 
 require_root
 log "hardening: removing unnecessary base packages"

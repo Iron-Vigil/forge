@@ -2,9 +2,8 @@
 # Component: nginx
 # Configs are staged to /tmp/if_nginx_* by the Packer file provisioner before this runs
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "${SCRIPT_DIR}/../_lib/common.sh"
-. "${SCRIPT_DIR}/../_lib/apk.sh"
+. /tmp/forge-lib/common.sh
+. /tmp/forge-lib/apk.sh
 
 require_root
 log "component/nginx: installing"
