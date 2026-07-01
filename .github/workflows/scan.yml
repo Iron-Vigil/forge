@@ -8,8 +8,12 @@ on:
         required: true
         type: string
       image_ref:
-        description: 'Full image ref with tag'
+        description: 'Full image ref with tag (e.g. ghcr.io/iron-vigil/forge/web-nginx:0.1.0)'
         required: true
+        type: string
+      image_digest:
+        description: 'Full image ref with digest — used for Cosign signing'
+        required: false
         type: string
       version:
         description: 'Image version'
@@ -18,7 +22,7 @@ on:
 
 permissions:
   contents: read
-  packages: read
+  packages: write  # cosign sign pushes signature blobs to GHCR
   security-events: write
   id-token: write   # for Cosign keyless signing
   actions: write    # for triggering release workflow
@@ -111,13 +115,17 @@ jobs:
 
       - name: Sign image
         run: |
-          cosign sign --yes ${{ inputs.image_ref }}
-          echo "Image signed with keyless Cosign (Sigstore OIDC)"
+          ref="${{ inputs.image_digest }}"
+          [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
+          cosign sign --yes "$ref"
+          echo "Image signed: $ref"
 
       # Attach SBOM to image in GHCR
       - name: Attach SBOM to image
         run: |
-          cosign attach sbom --sbom ./reports/sbom.spdx.json ${{ inputs.image_ref }}
+          ref="${{ inputs.image_digest }}"
+          [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
+          cosign attach sbom --sbom ./reports/sbom.spdx.json "$ref"
 
       # Archive reports for release attachment
       - name: Upload scan artifacts
