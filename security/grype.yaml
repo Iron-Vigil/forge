@@ -7,10 +7,30 @@ output: json
 # so all three output formats (sarif, json, table) complete before we check.
 
 ignore:
-  # Add known false positives here with justification and expiry date
-  # - vulnerability:
-  #     id: CVE-XXXX-XXXXX
-  #   reason: "False positive — fixed in Alpine 3.21.x, awaiting APK package update. Review by 2026-09-01"
+  # Add known false positives here with justification and expiry date.
+  # Format is a per-vulnerability + package selector; scope every entry tightly.
+
+  # CVE-2025-60876 — busybox wget CR/LF injection in the HTTP request-target.
+  # The distroless images strip busybox, busybox-binsh, and ssl_client entirely
+  # (binary and apk-db record, in each Dockerfile.strip), so they never match.
+  # Only the two -init images still carry these, and only because busybox provides
+  # the entrypoint shell. Nothing in those images invokes wget: exploiting it needs
+  # code execution in the container first, and ssl_client shares the busybox origin
+  # and version but not the vulnerable wget code. Medium severity, and Alpine has no
+  # fixed busybox in any branch as of 2026-07. Drop this once Alpine ships a fix
+  # (then a version bump clears it honestly). Review by 2026-10-01.
+  - vulnerability: CVE-2025-60876
+    reason: "busybox wget flaw; wget never invoked by these server images. No Alpine fix yet. Review 2026-10-01."
+    package:
+      name: busybox
+  - vulnerability: CVE-2025-60876
+    reason: "busybox-binsh shares the busybox origin/version; see the busybox entry."
+    package:
+      name: busybox-binsh
+  - vulnerability: CVE-2025-60876
+    reason: "ssl_client shares the busybox origin/version but not the wget code; see the busybox entry."
+    package:
+      name: ssl_client
 
 db:
   auto-update: true
