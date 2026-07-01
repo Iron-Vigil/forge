@@ -1,5 +1,6 @@
-name: web-nginx
-version: "0.1.0"
+name: hardened-nginx
+tag: "1.30"
+latest: true
 description: Hardened nginx web server on Alpine
 
 components:
@@ -16,7 +17,7 @@ distroless: true
 ipv6: false
 
 labels:
-  org.opencontainers.image.title: web-nginx
+  org.opencontainers.image.title: hardened-nginx
   org.opencontainers.image.description: Hardened nginx on Alpine
   org.opencontainers.image.vendor: IronVigil
   org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

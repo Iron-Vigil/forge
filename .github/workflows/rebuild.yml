@@ -35,12 +35,13 @@ jobs:
         run: |
           needs_rebuild=false
           for meta in images/*/meta.yml; do
-            image=$(dirname "$meta" | xargs basename)
-            ref="ghcr.io/iron-vigil/forge/${image}:latest"
+            name=$(grep '^name:' "$meta" | awk '{print $2}' | tr -d '"')
+            tag=$(grep  '^tag:'  "$meta" | awk '{print $2}' | tr -d '"')
+            ref="ghcr.io/iron-vigil/forge/${name}:${tag}"
 
-            echo "Checking ${image}..."
+            echo "Checking ${name}:${tag}..."
             if ! docker pull "$ref" --quiet 2>/dev/null; then
-              echo "${image}: not yet published, skipping"
+              echo "${name}:${tag}: not yet published, skipping"
               continue
             fi
 
@@ -50,10 +51,10 @@ jobs:
             crits=$(echo "$scan" | jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length')
 
             if [ "$fixable" -gt 0 ]; then
-              echo "${image}: ${fixable} CVE(s) with available fix (${crits} Critical) — rebuild triggered"
+              echo "${name}:${tag}: ${fixable} CVE(s) with available fix (${crits} Critical) — rebuild triggered"
               needs_rebuild=true
             else
-              echo "${image}: no fixable CVEs"
+              echo "${name}:${tag}: no fixable CVEs"
             fi
           done
 

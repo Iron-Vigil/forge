@@ -14,7 +14,7 @@ variable "alpine_version" {
 
 variable "image_version" {
   type    = string
-  default = "0.1.0"
+  default = "9"
 }
 
 variable "registry" {
@@ -22,23 +22,23 @@ variable "registry" {
   default = "ghcr.io/iron-vigil/forge"
 }
 
-source "docker" "runtime_aspnet10" {
+source "docker" "hardened_valkey" {
   image  = "alpine:${var.alpine_version}"
   commit = true
 
   changes = [
     "LABEL org.opencontainers.image.source=https://github.com/Iron-Vigil/forge",
     "LABEL org.opencontainers.image.vendor=IronVigil",
-    "LABEL org.opencontainers.image.title=runtime-aspnet10",
+    "LABEL org.opencontainers.image.title=hardened-valkey",
     "LABEL org.opencontainers.image.version=${var.image_version}",
-    "EXPOSE 8080",
-    "USER app",
-    "ENTRYPOINT [\"/usr/lib/dotnet/dotnet\"]"
+    "EXPOSE 6379",
+    "USER valkey",
+    "ENTRYPOINT [\"/usr/bin/valkey-server\", \"/etc/valkey/valkey.conf\"]"
   ]
 }
 
 build {
-  sources = ["source.docker.runtime_aspnet10"]
+  sources = ["source.docker.hardened_valkey"]
 
   # Stage shared lib — must be first
   provisioner "file" {
@@ -57,9 +57,15 @@ build {
     ]
   }
 
-  # ASP.NET Core 10 runtime component
+  # Stage valkey config before install
+  provisioner "file" {
+    source      = "${path.root}/../../components/valkey/valkey.conf"
+    destination = "/tmp/if_valkey.conf"
+  }
+
+  # Valkey component
   provisioner "shell" {
-    script = "${path.root}/../../components/aspnet-runtime10/install.sh"
+    script = "${path.root}/../../components/valkey/install.sh"
   }
 
   # Final strip
@@ -68,7 +74,7 @@ build {
   }
 
   post-processor "docker-tag" {
-    repository = "${var.registry}/runtime-aspnet10"
-    tags       = [var.image_version, "latest"]
+    repository = "${var.registry}/hardened-valkey"
+    tags       = [var.image_version]
   }
 }

@@ -14,7 +14,7 @@ variable "alpine_version" {
 
 variable "image_version" {
   type    = string
-  default = "0.1.0"
+  default = "1.30"
 }
 
 variable "registry" {
@@ -22,31 +22,32 @@ variable "registry" {
   default = "ghcr.io/iron-vigil/forge"
 }
 
-source "docker" "cache_valkey" {
+source "docker" "hardened_nginx" {
   image  = "alpine:${var.alpine_version}"
   commit = true
 
   changes = [
     "LABEL org.opencontainers.image.source=https://github.com/Iron-Vigil/forge",
     "LABEL org.opencontainers.image.vendor=IronVigil",
-    "LABEL org.opencontainers.image.title=cache-valkey",
+    "LABEL org.opencontainers.image.title=hardened-nginx",
     "LABEL org.opencontainers.image.version=${var.image_version}",
-    "EXPOSE 6379",
-    "USER valkey",
-    "ENTRYPOINT [\"/usr/bin/valkey-server\", \"/etc/valkey/valkey.conf\"]"
+    "EXPOSE 80 443",
+    "USER nginx",
+    "ENTRYPOINT [\"/usr/sbin/nginx\", \"-g\", \"daemon off;\"]"
   ]
 }
 
 build {
-  sources = ["source.docker.cache_valkey"]
+  sources = ["source.docker.hardened_nginx"]
 
-  # Stage shared lib — must be first
+  # Stage shared lib to a known path inside the container
+  # Must be first — all scripts source from /tmp/forge-lib/
   provisioner "file" {
     source      = "${path.root}/../../components/_lib/"
     destination = "/tmp/forge-lib/"
   }
 
-  # Base hardening
+  # Base hardening — runs before any component
   provisioner "shell" {
     scripts = [
       "${path.root}/../../base/hardening/01-packages.sh",
@@ -57,24 +58,30 @@ build {
     ]
   }
 
-  # Stage valkey config before install
+  # Stage nginx configs before the install script runs
   provisioner "file" {
-    source      = "${path.root}/../../components/valkey/valkey.conf"
-    destination = "/tmp/if_valkey.conf"
+    source      = "${path.root}/../../components/nginx/nginx.conf"
+    destination = "/tmp/if_nginx.conf"
   }
 
-  # Valkey component
+  provisioner "file" {
+    source      = "${path.root}/../../components/nginx/conf.d/default.conf"
+    destination = "/tmp/if_nginx_default.conf"
+  }
+
+  # nginx component
   provisioner "shell" {
-    script = "${path.root}/../../components/valkey/install.sh"
+    script = "${path.root}/../../components/nginx/install.sh"
   }
 
-  # Final strip
+  # Final strip — no shell or apk after this
   provisioner "shell" {
     script = "${path.root}/../../base/hardening/06-strip.sh"
   }
 
+  # Tag for GHCR — push is handled by the Actions workflow, not here
   post-processor "docker-tag" {
-    repository = "${var.registry}/cache-valkey"
-    tags       = [var.image_version, "latest"]
+    repository = "${var.registry}/hardened-nginx"
+    tags       = [var.image_version]
   }
 }

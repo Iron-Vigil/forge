@@ -14,7 +14,7 @@ variable "alpine_version" {
 
 variable "image_version" {
   type    = string
-  default = "0.1.0"
+  default = "10"
 }
 
 variable "registry" {
@@ -22,32 +22,30 @@ variable "registry" {
   default = "ghcr.io/iron-vigil/forge"
 }
 
-source "docker" "web_nginx" {
+source "docker" "hardened_dotnet_10" {
   image  = "alpine:${var.alpine_version}"
   commit = true
 
   changes = [
     "LABEL org.opencontainers.image.source=https://github.com/Iron-Vigil/forge",
     "LABEL org.opencontainers.image.vendor=IronVigil",
-    "LABEL org.opencontainers.image.title=web-nginx",
+    "LABEL org.opencontainers.image.title=hardened-dotnet",
     "LABEL org.opencontainers.image.version=${var.image_version}",
-    "EXPOSE 80 443",
-    "USER nginx",
-    "ENTRYPOINT [\"/usr/sbin/nginx\", \"-g\", \"daemon off;\"]"
+    "USER app",
+    "ENTRYPOINT [\"/usr/lib/dotnet/dotnet\"]"
   ]
 }
 
 build {
-  sources = ["source.docker.web_nginx"]
+  sources = ["source.docker.hardened_dotnet_10"]
 
-  # Stage shared lib to a known path inside the container
-  # Must be first — all scripts source from /tmp/forge-lib/
+  # Stage shared lib — must be first
   provisioner "file" {
     source      = "${path.root}/../../components/_lib/"
     destination = "/tmp/forge-lib/"
   }
 
-  # Base hardening — runs before any component
+  # Base hardening
   provisioner "shell" {
     scripts = [
       "${path.root}/../../base/hardening/01-packages.sh",
@@ -58,30 +56,18 @@ build {
     ]
   }
 
-  # Stage nginx configs before the install script runs
-  provisioner "file" {
-    source      = "${path.root}/../../components/nginx/nginx.conf"
-    destination = "/tmp/if_nginx.conf"
-  }
-
-  provisioner "file" {
-    source      = "${path.root}/../../components/nginx/conf.d/default.conf"
-    destination = "/tmp/if_nginx_default.conf"
-  }
-
-  # nginx component
+  # .NET 10 runtime component
   provisioner "shell" {
-    script = "${path.root}/../../components/nginx/install.sh"
+    script = "${path.root}/../../components/dotnet-runtime10/install.sh"
   }
 
-  # Final strip — no shell or apk after this
+  # Final strip
   provisioner "shell" {
     script = "${path.root}/../../base/hardening/06-strip.sh"
   }
 
-  # Tag for GHCR — push is handled by the Actions workflow, not here
   post-processor "docker-tag" {
-    repository = "${var.registry}/web-nginx"
-    tags       = [var.image_version, "latest"]
+    repository = "${var.registry}/hardened-dotnet"
+    tags       = [var.image_version]
   }
 }

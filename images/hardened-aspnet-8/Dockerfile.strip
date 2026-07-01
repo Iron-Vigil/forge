@@ -34,7 +34,7 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
       org.opencontainers.image.vendor="IronVigil" \
-      org.opencontainers.image.title="runtime-dotnet8" \
+      org.opencontainers.image.title="hardened-aspnet" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
@@ -45,6 +45,7 @@ ENV DOTNET_RUNNING_IN_CONTAINER=true \
     DOTNET_EnableDiagnostics=0 \
     ASPNETCORE_HTTP_PORTS=8080 \
     APP_UID=1654
+EXPOSE 8080
 WORKDIR /app
 USER 1654
 ENTRYPOINT ["/usr/lib/dotnet/dotnet"]

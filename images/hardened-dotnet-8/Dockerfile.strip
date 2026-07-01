@@ -5,17 +5,15 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 
 FROM ${BASE} AS stage
-# The base image commits USER valkey, so the strip must switch back to root to
-# remove root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
+# The base image commits USER app, so the strip must switch to root to remove
+# root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
 USER root
 # busybox provides rm/find/readlink, so removing it first breaks every applet
 # that follows (exit 127). Discover its symlinks while it's alive, then delete
 # them AND busybox in ONE rm — rm stays mapped in memory through its own unlink.
+# The /usr/lib/dotnet tree and native .so deps are untouched.
 RUN set -eu; \
     rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
-    rm -f /usr/bin/valkey-cli /usr/bin/valkey-benchmark \
-          /usr/bin/valkey-check-aof /usr/bin/valkey-check-rdb \
-          /usr/bin/valkey-sentinel; \
     links=""; \
     for d in /bin /sbin /usr/bin /usr/sbin /usr/local/bin; do \
         [ -d "$d" ] || continue; \
@@ -36,12 +34,17 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
       org.opencontainers.image.vendor="IronVigil" \
-      org.opencontainers.image.title="cache-valkey" \
+      org.opencontainers.image.title="hardened-dotnet" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.licenses="BSD-3-Clause"
-EXPOSE 6379
-USER valkey
-ENTRYPOINT ["/usr/bin/valkey-server", "/etc/valkey/valkey.conf"]
+      org.opencontainers.image.licenses="MIT"
+ENV DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_ROOT=/usr/lib/dotnet \
+    DOTNET_EnableDiagnostics=0 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    APP_UID=1654
+WORKDIR /app
+USER 1654
+ENTRYPOINT ["/usr/lib/dotnet/dotnet"]

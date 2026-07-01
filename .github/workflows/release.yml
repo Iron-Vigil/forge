@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       image:
-        description: 'Image name'
+        description: 'Image dir / build key (for meta path + artifact names)'
+        required: true
+        type: string
+      image_name:
+        description: 'Published repo name (e.g. hardened-nginx)'
         required: true
         type: string
       image_ref:
@@ -83,10 +87,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ inputs.image }}/v${{ inputs.version }}
-          release_name: ${{ inputs.image }} v${{ inputs.version }}
+          tag_name: ${{ inputs.image_name }}/v${{ inputs.version }}
+          release_name: ${{ inputs.image_name }} v${{ inputs.version }}
           body: |
-            ## ${{ inputs.image }} v${{ inputs.version }}
+            ## ${{ inputs.image_name }} v${{ inputs.version }}
 
             ### Pull
 
@@ -99,7 +103,7 @@ jobs:
             ### Verify signature
 
             ```
-            cosign verify ghcr.io/iron-vigil/forge/${{ inputs.image }}:${{ inputs.version }} \
+            cosign verify ghcr.io/iron-vigil/forge/${{ inputs.image_name }}:${{ inputs.version }} \
               --certificate-identity-regexp="https://github.com/Iron-Vigil/forge" \
               --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
             ```
