@@ -12,6 +12,10 @@ Public repository of hardened Docker images for the Iron Vigil platform. Images 
 |---|---|---|
 | `web-nginx` | Hardened nginx on Alpine | 80, 443 |
 | `cache-valkey` | Hardened Valkey cache on Alpine | 6379 |
+| `runtime-dotnet8` | Hardened .NET 8 runtime on Alpine (base image) | — |
+| `runtime-dotnet10` | Hardened .NET 10 runtime on Alpine (base image) | — |
+| `runtime-aspnet8` | Hardened ASP.NET Core 8 runtime on Alpine (base image) | 8080 |
+| `runtime-aspnet10` | Hardened ASP.NET Core 10 runtime on Alpine (base image) | 8080 |
 
 ---
 
@@ -40,7 +44,21 @@ docker pull ghcr.io/iron-vigil/forge/web-nginx:0.1.0
 
 # Valkey cache
 docker pull ghcr.io/iron-vigil/forge/cache-valkey:0.1.0
+
+# .NET runtime base images (use as a FROM base for your published app)
+docker pull ghcr.io/iron-vigil/forge/runtime-aspnet10:0.1.0
 ```
+
+The `runtime-*` images are distroless .NET base images — no shell, non-root
+(uid 1654), `dotnet` on the entrypoint. Layer your published app on top:
+
+```dockerfile
+FROM ghcr.io/iron-vigil/forge/runtime-aspnet10:0.1.0
+COPY --chown=1654:1654 ./publish/ /app/
+ENTRYPOINT ["/usr/lib/dotnet/dotnet", "/app/MyApp.dll"]
+```
+
+Globalization (ICU) is included; ASP.NET Core listens on `8080` as uid 1654.
 
 Verify the Cosign signature (same command for all images, swap the image ref):
 
@@ -90,14 +108,34 @@ components/
   valkey/
     install.sh
     valkey.conf
+  dotnet-runtime8/          # .NET runtime components — one apk pin each
+    install.sh
+  dotnet-runtime10/
+    install.sh
+  aspnet-runtime8/
+    install.sh
+  aspnet-runtime10/
+    install.sh
 
 images/
   web-nginx/
     image.pkr.hcl           # Packer template
     meta.yml                # image metadata (components, ports, entrypoint)
+    Dockerfile.strip        # post-Packer distroless strip (FROM scratch)
   cache-valkey/
     image.pkr.hcl
     meta.yml
+    Dockerfile.strip
+  runtime-dotnet8/          # .NET 8 base runtime
+    image.pkr.hcl
+    meta.yml
+    Dockerfile.strip
+  runtime-dotnet10/         # .NET 10 base runtime
+    ...
+  runtime-aspnet8/          # ASP.NET Core 8 runtime
+    ...
+  runtime-aspnet10/         # ASP.NET Core 10 runtime
+    ...
 
 security/
   grype.yaml                # Grype scan config

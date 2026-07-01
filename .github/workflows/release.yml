@@ -74,7 +74,7 @@ jobs:
       - name: Get components list
         id: components
         run: |
-          comps=$(grep -A 20 '^components:' images/${{ inputs.image }}/meta.yml | grep '^  - ' | awk '{print $2}' | tr '\n' ' ')
+          comps=$(awk '/^components:/{f=1;next} f && /^ *-/{print $2} f && !/^ *-/{exit}' images/${{ inputs.image }}/meta.yml | tr '\n' ' ')
           echo "list=${comps}" >> "$GITHUB_OUTPUT"
 
       - name: Create release

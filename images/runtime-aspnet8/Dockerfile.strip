@@ -5,12 +5,13 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 
 FROM ${BASE} AS stage
-# The base image commits USER nginx, so the strip must switch back to root to
-# remove root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
+# The base image commits USER app, so the strip must switch to root to remove
+# root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
 USER root
 # busybox provides rm/find/readlink, so removing it first breaks every applet
 # that follows (exit 127). Discover its symlinks while it's alive, then delete
 # them AND busybox in ONE rm — rm stays mapped in memory through its own unlink.
+# The /usr/lib/dotnet tree and native .so deps are untouched.
 RUN set -eu; \
     rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
     links=""; \
@@ -33,12 +34,18 @@ ARG IMAGE_VERSION
 ARG IMAGE_DESCRIPTION
 LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
       org.opencontainers.image.vendor="IronVigil" \
-      org.opencontainers.image.title="web-nginx" \
+      org.opencontainers.image.title="runtime-aspnet8" \
       org.opencontainers.image.version="${IMAGE_VERSION}" \
       org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
-      org.opencontainers.image.licenses="BSD-2-Clause"
-EXPOSE 80 443
-USER nginx
-ENTRYPOINT ["/usr/sbin/nginx", "-g", "daemon off;"]
+      org.opencontainers.image.licenses="MIT"
+ENV DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_ROOT=/usr/lib/dotnet \
+    DOTNET_EnableDiagnostics=0 \
+    ASPNETCORE_HTTP_PORTS=8080 \
+    APP_UID=1654
+EXPOSE 8080
+WORKDIR /app
+USER 1654
+ENTRYPOINT ["/usr/lib/dotnet/dotnet"]
