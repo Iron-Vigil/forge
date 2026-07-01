@@ -11,6 +11,7 @@ Public repository of hardened Docker images for the Iron Vigil platform. Images 
 | Image | Description | Ports |
 |---|---|---|
 | `web-nginx` | Hardened nginx on Alpine | 80, 443 |
+| `cache-valkey` | Hardened Valkey cache on Alpine | 6379 |
 
 ---
 
@@ -34,16 +35,30 @@ Monthly rebuilds run the first Monday of each month at 02:00 UTC. They only fire
 ## Pulling Images
 
 ```sh
+# nginx
 docker pull ghcr.io/iron-vigil/forge/web-nginx:0.1.0
-docker pull ghcr.io/iron-vigil/forge/web-nginx:latest
+
+# Valkey cache
+docker pull ghcr.io/iron-vigil/forge/cache-valkey:0.1.0
 ```
 
-Verify the Cosign signature:
+Verify the Cosign signature (same command for all images, swap the image ref):
 
 ```sh
-cosign verify ghcr.io/iron-vigil/forge/web-nginx:0.1.0 \
+cosign verify ghcr.io/iron-vigil/forge/cache-valkey:0.1.0 \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp "https://github.com/Iron-Vigil/forge/.github/workflows/scan.yml"
+```
+
+Running the Valkey cache:
+
+```sh
+docker run -d --name valkey \
+  --read-only \
+  --network my-net \
+  -p 6379:6379 \
+  ghcr.io/iron-vigil/forge/cache-valkey:0.1.0 \
+  valkey-server /etc/valkey/valkey.conf --requirepass yourpassword --maxmemory 256mb
 ```
 
 ---
@@ -72,11 +87,17 @@ components/
   openssh/
     install.sh
     sshd_config
+  valkey/
+    install.sh
+    valkey.conf
 
 images/
   web-nginx/
     image.pkr.hcl           # Packer template
     meta.yml                # image metadata (components, ports, entrypoint)
+  cache-valkey/
+    image.pkr.hcl
+    meta.yml
 
 security/
   grype.yaml                # Grype scan config
