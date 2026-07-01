@@ -9,7 +9,7 @@ require_root
 log "component/nginx: installing"
 
 # Verify to get the exact pin: apk search --exact nginx
-apk_install "nginx=1.26.2-r0"
+apk_install "nginx=1.26.3-r0"
 
 # Alpine's nginx package creates the nginx user — verify it landed
 getent passwd nginx > /dev/null 2>&1 || die "nginx user missing after package install"
