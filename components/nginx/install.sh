@@ -37,7 +37,12 @@ mkdir -p /var/log/nginx
 chown -R nginx:nginx /var/log/nginx
 
 # Runtime dirs nginx needs to start
-mkdir -p /var/lib/nginx/tmp/{client_body,fastcgi,proxy,scgi,uwsgi}
+mkdir -p \
+    /var/lib/nginx/tmp/client_body \
+    /var/lib/nginx/tmp/fastcgi \
+    /var/lib/nginx/tmp/proxy \
+    /var/lib/nginx/tmp/scgi \
+    /var/lib/nginx/tmp/uwsgi
 chown -R nginx:nginx /var/lib/nginx
 
 # PID dir
