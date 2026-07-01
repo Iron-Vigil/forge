@@ -12,8 +12,10 @@ log "component/php-fpm-8.5: installing"
 # unpinned on purpose: each depends on php85-common, so apk resolves them to the
 # same version as the pinned fpm — they can't drift within the Alpine branch.
 apk_install "php85-fpm=8.5.7-r0"
+# php85-opcache is not packaged separately in Alpine 3.24 (it is for 8.3/8.4).
+# Omitted here; add it back if/when Alpine ships php85-opcache.
 apk_install \
-    "php85-opcache" "php85-pdo" "php85-pdo_mysql" "php85-mysqli" \
+    "php85-pdo" "php85-pdo_mysql" "php85-mysqli" \
     "php85-mbstring" "php85-curl" "php85-gd" "php85-intl" "php85-zip" \
     "php85-dom" "php85-xml" "php85-simplexml" "php85-bcmath" "php85-fileinfo" \
     "php85-session" "php85-ctype" "php85-iconv" "php85-phar" "php85-tokenizer" \
