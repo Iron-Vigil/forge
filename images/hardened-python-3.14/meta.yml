@@ -1,0 +1,19 @@
+name: hardened-python
+tag: "3.14"
+latest: true
+description: Hardened Python 3.14 runtime on Alpine
+
+components:
+  - python
+
+run_as: app
+entrypoint: ["/usr/bin/python3"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: hardened-python
+  org.opencontainers.image.description: Hardened Python 3.14 on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge
