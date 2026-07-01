@@ -1,0 +1,58 @@
+# OpenSSH hardened config — ImageFactory
+# Based on Mozilla Modern OpenSSH guidelines
+
+Port 22
+AddressFamily inet
+ListenAddress 0.0.0.0
+
+# Host keys
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+
+# Privilege separation
+UsePrivilegeSeparation sandbox
+PidFile /var/run/sshd.pid
+
+# Auth — pubkey only, no passwords
+AuthenticationMethods publickey
+PubkeyAuthentication yes
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
+UsePAM no
+
+# No root login
+PermitRootLogin no
+PermitEmptyPasswords no
+
+# Strong algorithms only
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
+MACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com
+HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256
+
+# Lockout / timeouts
+LoginGraceTime 30
+MaxAuthTries 3
+MaxSessions 5
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# No tunneling or forwarding
+AllowTcpForwarding no
+X11Forwarding no
+AllowAgentForwarding no
+PermitTunnel no
+GatewayPorts no
+
+# Disable legacy cruft
+IgnoreRhosts yes
+HostbasedAuthentication no
+PermitUserEnvironment no
+
+# Logging
+SyslogFacility AUTH
+LogLevel VERBOSE
+
+# Privilege separation user
+UsePrivilegeSeparation sandbox

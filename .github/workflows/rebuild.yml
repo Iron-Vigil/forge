@@ -1,0 +1,73 @@
+name: Monthly Rebuild
+
+on:
+  schedule:
+    # First Monday of each month at 02:00 UTC
+    - cron: '0 2 1-7 * 1'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual full rebuild'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  check-advisories:
+    name: Check for advisories before rebuild
+    runs-on: ubuntu-latest
+    outputs:
+      rebuild_needed: ${{ steps.check.outputs.rebuild_needed }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Check published images for new CVEs
+        id: check
+        run: |
+          needs_rebuild=false
+          for meta in images/*/meta.yml; do
+            image=$(dirname "$meta" | xargs basename)
+            ref="ghcr.io/iron-vigil/forge/${image}:latest"
+
+            echo "Checking ${image}..."
+            if ! docker pull "$ref" --quiet 2>/dev/null; then
+              echo "${image}: not yet published, skipping"
+              continue
+            fi
+
+            crits=$(grype "$ref" --config security/grype.yaml --output json 2>/dev/null | \
+              jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length')
+
+            if [ "$crits" -gt 0 ]; then
+              echo "${image}: ${crits} new CRITICAL CVE(s) found — rebuild required"
+              needs_rebuild=true
+            else
+              echo "${image}: clean"
+            fi
+          done
+
+          # Manual dispatch always rebuilds
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            needs_rebuild=true
+          fi
+
+          echo "rebuild_needed=${needs_rebuild}" >> "$GITHUB_OUTPUT"
+
+  rebuild:
+    name: Full matrix rebuild
+    needs: check-advisories
+    if: needs.check-advisories.outputs.rebuild_needed == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      force_all: true
+    permissions:
+      contents: read
+      packages: write

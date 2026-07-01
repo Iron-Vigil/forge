@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:base"],
+  "labels": ["dependencies"],
+  "prCreation": "immediate",
+  "prHourlyLimit": 4,
+  "automerge": false,
+
+  "packageRules": [
+    {
+      "description": "Group all Alpine version bumps into a single PR",
+      "matchManagers": ["custom.regex"],
+      "matchPackageNames": ["alpine"],
+      "groupName": "alpine base version",
+      "addLabels": ["alpine-version"]
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "addLabels": ["github-actions"]
+    },
+    {
+      "description": "Group APK package pins",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["components/**/*.sh"],
+      "groupName": "apk package pins",
+      "addLabels": ["apk-packages"]
+    }
+  ],
+
+  "customManagers": [
+    {
+      "description": "Alpine version in pkrvars.hcl",
+      "customType": "regex",
+      "fileMatch": ["^base/alpine\\.pkrvars\\.hcl$"],
+      "matchStrings": ["alpine_version\\s*=\\s*\"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "alpine",
+      "packageNameTemplate": "alpine",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "description": "APK exact version pins in component install scripts",
+      "customType": "regex",
+      "fileMatch": ["^components/.+/install\\.sh$"],
+      "matchStrings": ["apk_install\\s+\"(?<depName>[a-z0-9_-]+)=(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "repology",
+      "packageNameTemplate": "alpine_3_21/{{depName}}"
+    },
+    {
+      "description": "Packer plugin versions in image HCL files",
+      "customType": "regex",
+      "fileMatch": ["^images/.+/image\\.pkr\\.hcl$"],
+      "matchStrings": ["version\\s*=\\s*\">= (?<currentValue>[^\"]+)\"\\s*\\n\\s*\\}\\s*\\n\\s*\\}"],
+      "depNameTemplate": "hashicorp/docker",
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "hashicorp/packer-plugin-docker"
+    }
+  ]
+}

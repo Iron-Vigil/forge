@@ -1,0 +1,22 @@
+name: web-nginx
+version: "0.1.0"
+description: Hardened nginx web server on Alpine
+
+components:
+  - nginx
+
+expose:
+  - 80
+  - 443
+
+run_as: nginx
+entrypoint: ["/usr/sbin/nginx", "-g", "daemon off;"]
+
+distroless: true
+ipv6: false
+
+labels:
+  org.opencontainers.image.title: web-nginx
+  org.opencontainers.image.description: Hardened nginx on Alpine
+  org.opencontainers.image.vendor: IronVigil
+  org.opencontainers.image.source: https://github.com/Iron-Vigil/forge

@@ -1,0 +1,35 @@
+# Grype configuration — Forge
+# https://github.com/anchore/grype#configuration
+
+output: json
+
+fail-on-severity: critical
+
+ignore:
+  # Add known false positives here with justification and expiry date
+  # - vulnerability:
+  #     id: CVE-XXXX-XXXXX
+  #   reason: "False positive — fixed in Alpine 3.21.x, awaiting APK package update. Review by 2026-09-01"
+
+db:
+  auto-update: true
+  validate-by-hash-on-start: true
+
+search:
+  scope: all-layers        # scan all layers, not just the squashed view
+  unindexed-archives: true
+  indexed-archives: true
+
+match:
+  java:
+    using-cpes: true
+  dotnet:
+    using-cpes: true
+  golang:
+    using-cpes: true
+
+external-sources:
+  enable: false            # no callouts to external services during CI
+
+log:
+  level: warn

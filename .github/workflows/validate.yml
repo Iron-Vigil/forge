@@ -1,0 +1,87 @@
+name: Validate PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: latest
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: ShellCheck — all scripts
+        run: |
+          find base/ components/ security/ -name "*.sh" | xargs shellcheck -S warning
+
+      - name: Detect changed images
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            images:
+              - 'images/**'
+            base:
+              - 'base/**'
+            components:
+              - 'components/**'
+
+      - name: Find image HCL files to validate
+        id: find_images
+        run: |
+          if [ "${{ steps.changes.outputs.images }}" = "true" ] || \
+             [ "${{ steps.changes.outputs.base }}" = "true" ] || \
+             [ "${{ steps.changes.outputs.components }}" = "true" ]; then
+            find images/ -name "image.pkr.hcl" | sort > /tmp/hcl_files.txt
+            echo "files=$(cat /tmp/hcl_files.txt | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Packer init + validate
+        if: steps.find_images.outputs.has_changes == 'true'
+        run: |
+          while IFS= read -r hcl; do
+            dir=$(dirname "$hcl")
+            echo "Validating $hcl"
+            packer init "$dir"
+            packer validate -var-file=base/alpine.pkrvars.hcl "$dir"
+          done < /tmp/hcl_files.txt
+
+      - name: Validate meta.yml files
+        if: steps.find_images.outputs.has_changes == 'true'
+        run: |
+          pip install -q yamllint
+          find images/ -name "meta.yml" | xargs yamllint -d relaxed
+
+      - name: Verify component references exist
+        if: steps.find_images.outputs.has_changes == 'true'
+        run: |
+          fail=0
+          for meta in images/*/meta.yml; do
+            image=$(dirname "$meta" | xargs basename)
+            # awk: collect lines under ^components: until the next top-level key
+            components=$(awk '/^components:/{f=1;next} f&&/^[^ ]/{exit} f&&/^  - /{print $2}' "$meta")
+            for comp in $components; do
+              if [ ! -d "components/$comp" ]; then
+                echo "ERROR: $image references component '$comp' but components/$comp does not exist"
+                fail=1
+              fi
+            done
+          done
+          exit $fail
