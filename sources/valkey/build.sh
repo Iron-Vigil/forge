@@ -11,6 +11,10 @@ cd "$WORKDIR"
 
 VERSION=$(cat /build/version)
 TARBALL="valkey-${VERSION}.tar.gz"
+# Valkey 7.2.x publishes no signed release asset — the git tag archive is the
+# only upstream source. GitHub auto-archives aren't guaranteed byte-stable, so
+# the pinned sha256 is the integrity gate: if GitHub re-rolls the archive the
+# checksum breaks the build (fail-closed) rather than silently accepting it.
 URL="https://github.com/valkey-io/valkey/archive/refs/tags/${VERSION}.tar.gz"
 
 apk add --no-cache gcc musl-dev make openssl-dev linux-headers wget
@@ -38,6 +42,13 @@ make BUILD_TLS=yes USE_SYSTEMD=no MALLOC=libc \
     -j$(nproc)
 
 install -Dm755 src/valkey-server /output/valkey-server
+
+apk add --no-cache binutils
+echo "Verifying hardening landed:"
+readelf -d /output/valkey-server | grep -q 'BIND_NOW' || { echo "FAIL: no BIND_NOW (relro/now missing)"; exit 1; }
+readelf -h /output/valkey-server | grep -q 'DYN' || { echo "FAIL: not PIE"; exit 1; }
+readelf -s /output/valkey-server | grep -q '__stack_chk_fail' || { echo "FAIL: no stack protector"; exit 1; }
+echo "Hardening OK: PIE + BIND_NOW + stack protector present"
 
 echo "Built: /output/valkey-server"
 /output/valkey-server --version

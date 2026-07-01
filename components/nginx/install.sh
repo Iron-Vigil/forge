@@ -25,12 +25,17 @@ rm -f /tmp/forge-src-nginx
     || die "nginx.conf not staged — check file provisioner in image.pkr.hcl"
 [ -f /tmp/if_nginx_default.conf ] \
     || die "default.conf not staged — check file provisioner in image.pkr.hcl"
+# Source build ships only the binary, so mime.types (normally from the tarball's
+# conf/) must be staged here or nginx.conf's include fails validation.
+[ -f /tmp/if_nginx_mime.types ] \
+    || die "mime.types not staged — check file provisioner in image.pkr.hcl"
 
 mkdir -p /etc/nginx/conf.d
 install -m 640 -o root -g nginx /tmp/if_nginx.conf /etc/nginx/nginx.conf
 install -m 640 -o root -g nginx /tmp/if_nginx_default.conf /etc/nginx/conf.d/default.conf
+install -m 644 -o root -g nginx /tmp/if_nginx_mime.types /etc/nginx/mime.types
 
-rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf
+rm -f /tmp/if_nginx.conf /tmp/if_nginx_default.conf /tmp/if_nginx_mime.types
 
 # Webroot
 mkdir -p /var/www/html

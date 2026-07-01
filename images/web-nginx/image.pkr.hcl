@@ -75,6 +75,11 @@ build {
     destination = "/tmp/if_nginx_default.conf"
   }
 
+  provisioner "file" {
+    source      = "${path.root}/../../components/nginx/mime.types"
+    destination = "/tmp/if_nginx_mime.types"
+  }
+
   # nginx component
   provisioner "shell" {
     script = "${path.root}/../../components/nginx/install.sh"

@@ -30,13 +30,15 @@ fi
 echo "${EXPECTED}  ${TARBALL}" | sha256sum -c -
 echo "SHA256 OK"
 
-if [ -s /build/pgp-key.asc ]; then
+# A committed key file that's only comments is still non-empty, so test for
+# real key content — not just [ -s ]. Comment-only => skip cleanly.
+if grep -v '^[[:space:]]*#' /build/pgp-key.asc | grep -q '[^[:space:]]'; then
     gpg --import /build/pgp-key.asc
     wget -q -O "${TARBALL}.asc" "${URL}.asc"
     gpg --verify "${TARBALL}.asc" "$TARBALL"
     echo "PGP OK"
 else
-    echo "WARN: pgp-key.asc is empty — skipping PGP verification"
+    echo "WARN: pgp-key.asc has no key — skipping PGP verification (SHA256 still enforced)"
 fi
 
 tar xzf "$TARBALL"
@@ -77,10 +79,20 @@ LDFLAGS="-Wl,-z,relro -Wl,-z,now -pie"
     --without-http_uwsgi_module \
     --without-http_scgi_module \
     --without-http_grpc_module \
-    CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+    --with-cc-opt="$CFLAGS" \
+    --with-ld-opt="$LDFLAGS"
 
 make -j$(nproc)
 install -Dm755 objs/nginx /output/nginx
+
+# nginx configure ignores env CFLAGS/LDFLAGS — the hardening flags only land
+# via --with-cc-opt/--with-ld-opt. Assert they actually made it into the binary.
+apk add --no-cache binutils
+echo "Verifying hardening landed:"
+readelf -d /output/nginx | grep -q 'BIND_NOW' || { echo "FAIL: no BIND_NOW (relro/now missing)"; exit 1; }
+readelf -h /output/nginx | grep -q 'DYN' || { echo "FAIL: not PIE"; exit 1; }
+readelf -s /output/nginx | grep -q '__stack_chk_fail' || { echo "FAIL: no stack protector"; exit 1; }
+echo "Hardening OK: PIE + BIND_NOW + stack protector present"
 
 echo "Built: /output/nginx"
 /output/nginx -v
