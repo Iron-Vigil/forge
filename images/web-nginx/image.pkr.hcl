@@ -41,36 +41,36 @@ build {
   sources = ["source.docker.web_nginx"]
 
   # Base hardening — runs before any component
+  # path.root anchors to the HCL file directory; ../../ walks to repo root
   provisioner "shell" {
     scripts = [
-      "../../base/hardening/01-packages.sh",
-      "../../base/hardening/02-users.sh",
-      "../../base/hardening/03-suid.sh",
-      "../../base/hardening/04-network.sh",
-      "../../base/hardening/05-permissions.sh",
+      "${path.root}/../../base/hardening/01-packages.sh",
+      "${path.root}/../../base/hardening/02-users.sh",
+      "${path.root}/../../base/hardening/03-suid.sh",
+      "${path.root}/../../base/hardening/04-network.sh",
+      "${path.root}/../../base/hardening/05-permissions.sh",
     ]
   }
 
   # Stage nginx configs before the install script runs
-  # Packer uploads shell scripts to a temp path — configs must be staged separately
   provisioner "file" {
-    source      = "../../components/nginx/nginx.conf"
+    source      = "${path.root}/../../components/nginx/nginx.conf"
     destination = "/tmp/if_nginx.conf"
   }
 
   provisioner "file" {
-    source      = "../../components/nginx/conf.d/default.conf"
+    source      = "${path.root}/../../components/nginx/conf.d/default.conf"
     destination = "/tmp/if_nginx_default.conf"
   }
 
   # nginx component
   provisioner "shell" {
-    script = "../../components/nginx/install.sh"
+    script = "${path.root}/../../components/nginx/install.sh"
   }
 
   # Final strip — no shell or apk after this
   provisioner "shell" {
-    script = "../../base/hardening/06-strip.sh"
+    script = "${path.root}/../../base/hardening/06-strip.sh"
   }
 
   # Tag for GHCR — push is handled by the Actions workflow, not here
