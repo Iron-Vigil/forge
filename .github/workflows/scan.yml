@@ -92,6 +92,31 @@ jobs:
             --file ./reports/grype-summary.txt
           cat ./reports/grype-summary.txt
 
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Relabel image with CVE summary
+        id: relabeled
+        run: |
+          crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' ./reports/grype-report.json)
+          highs=$(jq '[.matches[] | select(.vulnerability.severity == "High")] | length' ./reports/grype-report.json)
+          mediums=$(jq '[.matches[] | select(.vulnerability.severity == "Medium")] | length' ./reports/grype-report.json)
+          lows=$(jq '[.matches[] | select(.vulnerability.severity == "Low")] | length' ./reports/grype-report.json)
+
+          BASE_DESC=$(grep '^description:' "images/${{ inputs.image }}/meta.yml" | cut -d: -f2- | tr -d '"' | xargs)
+          DESC="${BASE_DESC} — Critical:${crits} High:${highs} Medium:${mediums} Low:${lows} | Grype $(date -u +%Y-%m-%d)"
+
+          IMAGE="ghcr.io/iron-vigil/forge/${{ inputs.image }}"
+
+          crane mutate "${IMAGE}:${{ inputs.version }}" \
+            --label "org.opencontainers.image.description=${DESC}"
+          crane tag "${IMAGE}:${{ inputs.version }}" latest
+
+          digest=$(crane digest "${IMAGE}:${{ inputs.version }}")
+          echo "digest=${IMAGE}@${digest}" >> "$GITHUB_OUTPUT"
+          echo "Relabeled ${IMAGE}:${{ inputs.version }} → ${IMAGE}@${digest}"
+          echo "Description: ${DESC}"
+
       - name: Fail on CRITICAL vulnerabilities
         run: |
           crits=$(jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length' ./reports/grype-report.json)
@@ -115,7 +140,8 @@ jobs:
 
       - name: Sign image
         run: |
-          ref="${{ inputs.image_digest }}"
+          ref="${{ steps.relabeled.outputs.digest }}"
+          [ -z "$ref" ] && ref="${{ inputs.image_digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
           cosign sign --yes "$ref"
           echo "Image signed: $ref"
@@ -123,7 +149,8 @@ jobs:
       # Attach SBOM to image in GHCR
       - name: Attach SBOM to image
         run: |
-          ref="${{ inputs.image_digest }}"
+          ref="${{ steps.relabeled.outputs.digest }}"
+          [ -z "$ref" ] && ref="${{ inputs.image_digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
           cosign attach sbom --sbom ./reports/sbom.spdx.json "$ref"
 
@@ -148,7 +175,7 @@ jobs:
               inputs: {
                 image: '${{ inputs.image }}',
                 image_ref: '${{ inputs.image_ref }}',
-                image_digest: '${{ inputs.image_digest }}',
+                image_digest: '${{ steps.relabeled.outputs.digest || inputs.image_digest }}',
                 version: '${{ inputs.version }}',
                 scan_run_id: String(context.runId),
               }
