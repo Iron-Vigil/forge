@@ -1,0 +1,44 @@
+ARG BASE
+ARG BUILD_DATE
+ARG VCS_REF
+ARG IMAGE_VERSION
+ARG IMAGE_DESCRIPTION
+
+FROM ${BASE} AS stage
+# The base image commits USER app, so the strip must switch to root to remove
+# root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
+USER root
+# busybox provides rm/find/readlink, so removing it first breaks every applet
+# that follows (exit 127). Discover its symlinks while it's alive, then delete
+# them AND busybox in ONE rm — rm stays mapped in memory through its own unlink.
+RUN set -eu; \
+    rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
+    links=""; \
+    for d in /bin /sbin /usr/bin /usr/sbin /usr/local/bin; do \
+        [ -d "$d" ] || continue; \
+        for f in "$d"/*; do \
+            [ -L "$f" ] || continue; \
+            case "$(readlink "$f")" in \
+                */busybox|busybox) links="${links} ${f}" ;; \
+            esac; \
+        done; \
+    done; \
+    rm -f ${links} /bin/busybox
+
+FROM scratch
+COPY --from=stage / /
+ARG BUILD_DATE
+ARG VCS_REF
+ARG IMAGE_VERSION
+ARG IMAGE_DESCRIPTION
+LABEL org.opencontainers.image.source="https://github.com/Iron-Vigil/forge" \
+      org.opencontainers.image.vendor="IronVigil" \
+      org.opencontainers.image.title="hardened-node" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.description="${IMAGE_DESCRIPTION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="MIT"
+WORKDIR /app
+USER 1000
+ENTRYPOINT ["/usr/bin/node"]

@@ -16,6 +16,8 @@ Images are tagged by the software version, like the official language images (`h
 | `hardened-valkey` | `9` | Hardened Valkey cache on Alpine | 6379 |
 | `hardened-dotnet` | `8`, `10` | Hardened .NET runtime on Alpine (base image) | — |
 | `hardened-aspnet` | `8`, `10` | Hardened ASP.NET Core runtime on Alpine (base image) | 8080 |
+| `hardened-python` | `3.14` | Hardened Python runtime on Alpine (base image) | — |
+| `hardened-node` | `24` | Hardened Node.js runtime on Alpine (base image) | — |
 | `hardened-php-fpm` | `8.3`, `8.4`, `8.5` | Hardened PHP-FPM (common-web extensions) on Alpine | 9000 |
 
 ---
@@ -129,6 +131,8 @@ images/                     # dir = hardened-<sw>-<ver>; published name/tag come
   hardened-dotnet-10/       # -> hardened-dotnet:10   (latest)
   hardened-aspnet-8/        # -> hardened-aspnet:8
   hardened-aspnet-10/       # -> hardened-aspnet:10   (latest)
+  hardened-python-3.14/     # -> hardened-python:3.14
+  hardened-node-24/         # -> hardened-node:24
   hardened-php-fpm-8.3/     # -> hardened-php-fpm:8.3
   hardened-php-fpm-8.4/     # -> hardened-php-fpm:8.4
   hardened-php-fpm-8.5/     # -> hardened-php-fpm:8.5  (latest)
