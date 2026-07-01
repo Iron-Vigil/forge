@@ -8,18 +8,22 @@ FROM ${BASE} AS stage
 # The base image commits USER nginx, so the strip must switch back to root to
 # remove root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
 USER root
-# Shell is available here — used to remove itself and all busybox symlinks.
-# Stage 2 copies from the merged FS: busybox is gone, nothing points at it.
+# busybox provides rm/find/readlink, so removing it first breaks every applet
+# that follows (exit 127). Discover its symlinks while it's alive, then delete
+# them AND busybox in ONE rm — rm stays mapped in memory through its own unlink.
 RUN set -eu; \
-    rm -f /bin/busybox; \
-    find /bin /sbin -maxdepth 1 -type l -delete 2>/dev/null; \
-    find /usr/bin /usr/sbin /usr/local/bin -maxdepth 1 -type l 2>/dev/null | \
-        while read -r f; do \
-            target=$(readlink "$f" 2>/dev/null) || continue; \
-            case "$target" in *busybox*) rm -f "$f";; esac; \
-        done; \
     rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
-    true
+    links=""; \
+    for d in /bin /sbin /usr/bin /usr/sbin /usr/local/bin; do \
+        [ -d "$d" ] || continue; \
+        for f in "$d"/*; do \
+            [ -L "$f" ] || continue; \
+            case "$(readlink "$f")" in \
+                */busybox|busybox) links="${links} ${f}" ;; \
+            esac; \
+        done; \
+    done; \
+    rm -f ${links} /bin/busybox
 
 FROM scratch
 COPY --from=stage / /
