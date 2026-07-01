@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   packages: write
+  actions: write
 
 jobs:
   check-advisories:
@@ -29,7 +30,7 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Check published images for new CVEs
+      - name: Check published images for fixable CVEs
         id: check
         run: |
           needs_rebuild=false
@@ -43,14 +44,16 @@ jobs:
               continue
             fi
 
-            crits=$(grype "$ref" --config security/grype.yaml --output json 2>/dev/null | \
-              jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length')
+            scan=$(grype "$ref" --config security/grype.yaml --output json 2>/dev/null)
 
-            if [ "$crits" -gt 0 ]; then
-              echo "${image}: ${crits} new CRITICAL CVE(s) found — rebuild required"
+            fixable=$(echo "$scan" | jq '[.matches[] | select(.vulnerability.fix.state == "fixed")] | length')
+            crits=$(echo "$scan" | jq '[.matches[] | select(.vulnerability.severity == "Critical")] | length')
+
+            if [ "$fixable" -gt 0 ]; then
+              echo "${image}: ${fixable} CVE(s) with available fix (${crits} Critical) — rebuild triggered"
               needs_rebuild=true
             else
-              echo "${image}: clean"
+              echo "${image}: no fixable CVEs"
             fi
           done
 
