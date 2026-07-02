@@ -41,6 +41,11 @@ jobs:
     name: Scan ${{ inputs.image }}
     runs-on: ubuntu-latest
 
+    # The DB is fetched once (with retry) in a dedicated step; the scan steps then
+    # run offline against that cache so a flaky Grype CDN can't drop the release.
+    env:
+      GRYPE_DB_AUTO_UPDATE: "false"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -77,7 +82,14 @@ jobs:
       # CVE scan with Grype against the SPDX SBOM
       - name: Install Grype
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          .github/scripts/retry.sh sh -c 'curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin'
+
+      - name: Update Grype DB (retry)
+        # The one network call to the vuln-DB CDN; retried so a transient 502
+        # doesn't fail the scan. Subsequent scan steps use this cache offline.
+        env:
+          GRYPE_DB_AUTO_UPDATE: "true"
+        run: .github/scripts/retry.sh grype db update
 
       - name: Grype scan — SARIF (GitHub Security tab)
         run: |
@@ -178,7 +190,7 @@ jobs:
           ref="${{ steps.relabeled.outputs.digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
-          cosign sign --yes "$ref"
+          .github/scripts/retry.sh cosign sign --yes "$ref"
           echo "Image signed: $ref"
 
       # Attach SBOM to image in GHCR
@@ -187,7 +199,7 @@ jobs:
           ref="${{ steps.relabeled.outputs.digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_digest }}"
           [ -z "$ref" ] && ref="${{ inputs.image_ref }}"
-          cosign attach sbom --sbom ./reports/sbom.spdx.json "$ref"
+          .github/scripts/retry.sh cosign attach sbom --sbom ./reports/sbom.spdx.json "$ref"
 
       # Archive reports for release attachment
       - name: Upload scan artifacts
