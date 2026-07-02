@@ -95,6 +95,37 @@ jobs:
             echo "GRYPE_EOF"
           } >> "$GITHUB_OUTPUT"
 
+          # Waived findings: what security/grype.yaml suppressed FOR THIS IMAGE
+          # (grype's ignoredMatches), deduped by CVE, with the affected packages and
+          # the rationale from the applied rule. Documents that these were evaluated
+          # and deemed not-affected, not silently dropped. One CVE ignored across
+          # several packages (e.g. the busybox family) collapses to one line and
+          # shows the substantive reason (the longest of the per-package rules).
+          waived=$(jq -r '
+            [ (.ignoredMatches // [])[]
+              | { id:  .vulnerability.id,
+                  url: (if (.vulnerability.dataSource // "") == "" then "https://osv.dev/vulnerability/" + .vulnerability.id else .vulnerability.dataSource end),
+                  pkg: .artifact.name,
+                  reason: (.appliedIgnoreRules[0].reason // "") } ]
+            | group_by(.id)
+            | map({ id: .[0].id, url: .[0].url,
+                    pkgs: (map(.pkg) | unique | join(", ")),
+                    reason: (max_by(.reason | length).reason // "") })
+            | sort_by(.id)
+            | .[]
+            | "- [\(.id)](\(.url)) — `\(.pkgs)` — \(.reason | gsub("[\r\n]+"; " "))"
+          ' "$report")
+          wn=$(printf "%s\n" "$waived" | grep -c . || true)
+          {
+            echo "waived<<WAIVED_EOF"
+            if [ "$wn" -gt 0 ]; then
+              printf '### Waived CVEs (not affected)\n\n'
+              printf 'Suppressed via `security/grype.yaml` with the rationale below. These were evaluated and judged not applicable to this image, not silently dropped; each is scoped to the named package and dated for review.\n\n'
+              printf '<details><summary>Waived (%s)</summary>\n\n%s\n\n</details>\n' "$wn" "$waived"
+            fi
+            echo "WAIVED_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Get Alpine version
         id: alpine
         run: |
@@ -158,6 +189,7 @@ jobs:
             Deduped by CVE id, grouped by severity (collapsed — click to expand). Full report and SBOM attached below; SARIF is in the [Security tab](../../security/code-scanning).
 
             ${{ steps.cve_detail.outputs.md }}
+            ${{ steps.cve_detail.outputs.waived }}
           files: |
             reports/grype-report-${{ inputs.image }}-${{ inputs.version }}.json
             reports/sbom-${{ inputs.image }}-${{ inputs.version }}.spdx.json
