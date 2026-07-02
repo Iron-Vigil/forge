@@ -26,7 +26,7 @@ jobs:
 
       - name: ShellCheck — all scripts
         run: |
-          find base/ components/ security/ -name "*.sh" | xargs shellcheck -S warning
+          find base/ components/ security/ .github/scripts/ -name "*.sh" | xargs shellcheck -S warning
 
       - name: Detect changed images
         id: changes
