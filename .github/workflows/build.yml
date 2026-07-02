@@ -218,6 +218,27 @@ jobs:
             -f "images/${{ matrix.image }}/Dockerfile.strip" \
             .
 
+      - name: Phantom package gate
+        run: |
+          # A stripped binary that leaves its apk-db record behind is a phantom:
+          # Syft still lists the package and Grype flags its CVEs on an image that
+          # no longer ships it. The distroless strip prunes these; this gate fails
+          # the build (before push) if any survive, so a new image that skips the
+          # prune can't ship a phantom CVE.
+          IMAGE="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}"
+          TAG="${{ steps.meta.outputs.tag }}"
+          # placeholder command token so `create` works even on a FROM scratch
+          # image with no entrypoint/cmd; the container is only exported, never run.
+          cid=$(docker create "${IMAGE}:${TAG}" /phantom-gate-placeholder)
+          docker export "$cid" > /tmp/phantom-img.tar
+          docker rm "$cid" >/dev/null
+          if ! tar -xOf /tmp/phantom-img.tar lib/apk/db/installed > /tmp/phantom.db 2>/dev/null; then
+            echo "No apk db in image; nothing to check."
+            exit 0
+          fi
+          tar -tf /tmp/phantom-img.tar | sed 's,^,/,' > /tmp/phantom.present
+          sh security/phantom-apk.sh check /tmp/phantom.db /tmp/phantom.present
+
       - name: Push image
         run: |
           IMAGE="ghcr.io/iron-vigil/forge/${{ steps.meta.outputs.name }}"

@@ -8,13 +8,15 @@ FROM ${BASE} AS stage
 # The base image commits USER valkey, so the strip must switch back to root to
 # remove root-owned files. Stage 2 (FROM scratch) sets the final non-root USER.
 USER root
+# Shared phantom-package prune; runs below while busybox is still alive. A CI gate
+# re-checks the pushed image (see .github/workflows/build.yml).
+COPY security/phantom-apk.sh /tmp/phantom-apk.sh
 # busybox provides rm/find/readlink, so removing it first breaks every applet
 # that follows (exit 127). Discover its symlinks while it's alive, then delete
 # them AND busybox in ONE rm — rm stays mapped in memory through its own unlink.
-# Also strip the busybox-origin apk-db records (busybox, busybox-binsh, ssl_client)
-# while busybox awk is still alive, and delete the orphaned ssl_client binary.
-# Without this, Syft still reads them from /lib/apk/db/installed and Grype flags
-# busybox CVEs (e.g. the wget CVE-2025-60876) on an image that no longer ships them.
+# Then prune any apk record whose bin/sbin files are all gone (busybox,
+# busybox-binsh, ssl_client, plus any stripped app CLI) so Syft/Grype stop
+# reporting phantom packages, e.g. the busybox wget CVE-2025-60876.
 RUN set -eu; \
     rm -rf /usr/share/man /usr/share/doc /usr/share/info; \
     rm -f /usr/bin/valkey-cli /usr/bin/valkey-benchmark \
@@ -30,8 +32,9 @@ RUN set -eu; \
             esac; \
         done; \
     done; \
-    awk 'BEGIN{RS="";ORS="\n\n"}{d=0;n=split($0,L,"\n");for(i=1;i<=n;i++)if(L[i]=="P:busybox"||L[i]=="P:busybox-binsh"||L[i]=="P:ssl_client")d=1;if(!d)print}' /lib/apk/db/installed > /lib/apk/db/installed.tmp && mv /lib/apk/db/installed.tmp /lib/apk/db/installed; \
-    rm -f ${links} /bin/busybox /usr/bin/ssl_client
+    find / -xdev 2>/dev/null > /tmp/.present; \
+    sh /tmp/phantom-apk.sh prune /lib/apk/db/installed /tmp/.present "/bin/busybox ${links} /usr/bin/ssl_client"; \
+    rm -f ${links} /bin/busybox /usr/bin/ssl_client /tmp/phantom-apk.sh /tmp/.present
 
 FROM scratch
 COPY --from=stage / /
