@@ -32,6 +32,19 @@ ignore:
     package:
       name: ssl_client
 
+  # CVE-2026-12003 — CPython getpath in-tree sys.path via VPATH landmark fallback.
+  # Build-time / install-layout only, and only on Windows (VPATH=..\..\ resolves
+  # outside the install dir). Our python images are Linux, built from Alpine's
+  # fixed-layout python3 apk (pybuilddir.txt present, not an in-tree source build),
+  # distroless with no shell and no second user to plant a landmark; sys.path is
+  # frozen at build. The vulnerable path is unreachable here. This is the ONLY
+  # python3 stdlib CVE we waive: the rest genuinely ship and are app-triggerable,
+  # so they stay visible until Alpine ships a patched python3. Review by 2026-10-01.
+  - vulnerability: CVE-2026-12003
+    reason: "getpath VPATH landmark; Windows/in-tree-source only. Linux distroless apk build, sys.path frozen. Not affected. Review 2026-10-01."
+    package:
+      name: python3
+
 db:
   auto-update: true
   validate-by-hash-on-start: true
